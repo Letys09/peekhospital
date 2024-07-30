@@ -1,0 +1,64 @@
+.line{
+    border: none; 
+    border-bottom: 1px solid black;
+    width: 100%;
+}
+.separador{
+    height: 11px; 
+    background: #1976d2; 
+    opacity: 0.3;
+}
+.lineF{
+    height: 1px; 
+    background: black;
+    opacity: 0.6;
+}
+canvas{
+    border: 1px solid black;
+}
+.firma{
+    border: 1px solid black;
+}
+.grid-container {
+    display: grid;
+    grid-template-columns: auto auto auto;
+    background-color: #2196F3;
+}
+.grid-item {
+    background-color: rgba(255, 255, 255, 0.8);
+    border: 1px solid rgba(0, 0, 0, 0.8);
+}
+.cuadricula{
+    appearance: none;
+    width: 25px;
+    height: 18px;
+    margin: 0px;
+}
+/* input:checked + label{
+    background: black;
+} */
+.check{
+    width: 1px;
+}
+.cuadricula2{
+    width: 25px;
+    height: 18px;
+    border: none;
+}
+.verContrato{
+    margin-top: 3rem;
+}
+
+.newResponsiveForm{
+    padding-left: 15px;
+}
+
+.bootstrap-select{
+    border: 1px solid #67757c !important;
+}
+
+/* @media (max-width: 1100.98px) {
+    .newResponsiveForm{
+        padding-left: 15px;
+    }
+} */

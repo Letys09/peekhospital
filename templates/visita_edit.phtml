@@ -1,0 +1,3070 @@
+<?php 
+	include 'header.phtml';
+	define('MOD_PAGO_OTRO',	162);
+	define('MOD_EDIT_DEL_PROD_AGREGADO', 182);
+
+	if($_SESSION['usuario']->usuario_tipo_id != 1) {
+		header('Location: '.URL_ROOT.'/403');
+		exit;
+	}
+	if(!isset($propietario)) {
+		header('Location: '.URL_ROOT.'/propietario/'.md5($_SESSION['cliente_general'])+'/nueva-visita/');
+		exit;
+	}
+?>
+	<link href="<?=URL_ROOT?>/assets/plugins/lightbox/css/lightbox.css" rel="stylesheet" type="text/css" />
+	<link href="<?=URL_ROOT?>/assets/plugins/bootstrap-datepicker/bootstrap-datepicker.min.css" rel="stylesheet" type="text/css" />
+	<link href="<?=URL_ROOT?>/assets/plugins/datatables/jquery.dataTables.min.css" rel="stylesheet" type="text/css" />
+	<link href="<?=URL_ROOT?>/assets/plugins/bootstrap-select/bootstrap-select.min.css" rel="stylesheet" type="text/css" />
+	<link href="<?=URL_ROOT?>/assets/plugins/confirm/css/jquery-confirm.min.css" rel="stylesheet" type="text/css" />
+
+	<div class="row page-titles">
+		<div class="col-md-5 align-self-center">
+			<h3 class="text-themecolor" id="title">
+				<i class="mdi mdi-account fa-lg"></i> 
+				<?php if($propietario->id == $_SESSION['cliente_general']) : ?>
+				Cliente General
+				<?php else: ?>
+				<a href="<?= URL_ROOT ?>/propietario/<?= md5($propietario->id) ?>" style="text-decoration: none; color: #00C0E1;"><?= $propietario->nombre.' '.$propietario->apellidos ?></a> 
+				<?php if($propietario->primera == 1) : ?>
+					<span class="badge badge-danger"><i class="mdi mdi-account-star-variant"></i> Primer Visita</span>
+				<?php endif; ?>
+				<?php endif; ?>
+			</h3>
+		</div>
+		<div class="col-md-7 align-self-center text-right">
+			<h5 class="text-themecolor" id="status-cliente">
+			<?= $propietario->id != $_SESSION['cliente_general'] ? 'Adeudo $ <span id="adeudo">'.number_format($adeudo,2).'</span> | A favor $ <span id="afavor">'.number_format($afavor,2).'</span>' : '' ?>
+			</h5>
+		</div>
+	</div>
+	<div class="container-fluid">
+		
+		<?php if($propietario->id == $_SESSION['prop_farm']) include 'farm_paquetes.phtml'; ?>
+
+		<div class="card b-all m-b-15">
+			<div class="card-header link" data-toggle="collapse" data-target="#div-conceptos">
+				<h5 class="m-b-0">
+					Buscar conceptos
+					<i class="mdi mdi-arrow-expand pull-right"></i> 
+				</h5>
+			</div>
+			<div class="card-body p-b-10 p-b-10 collapse show" id="div-conceptos">
+				<div class="form-horizontal">
+					<div class="form-group row m-b-0">
+						<div class="col-sm-12 table-responsive">
+							<input type="hidden" id="visita-id" value="0">
+							<input type="hidden" id="propietario-id" value="<?= $_SESSION['cliente_general'] ?>">
+							<table id="tbl-conceptos" class="table table-hover table-striped m-b-0 w-100 mw-100 table-sm compact">
+							</table>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="card b-all m-b-15">
+			<div class="card-header link bg-dark" data-toggle="collapse" data-target="#div-detalle">
+				<h5 class="m-b-0 text-white">
+					Conceptos agregados a la visita
+					<i class="mdi mdi-arrow-expand pull-right"></i> 
+				</h5>
+			</div>
+			<div class="card-body collapse show" id="div-detalle">
+				<div class="table-resonsive">
+					<table id="tbl-detalle" class="table table-sm m-b-0 w-100 mw-100">
+						<thead>
+							<tr>
+								<th class="text-center">Fecha</th>
+								<th>Asignado a</th>
+								<th class="text-center">Cant</th>
+								<th>Concepto</th>
+								<th class="text-center">Mascota</th>
+								<th class="text-center hide">Lote</th>
+								<th class="text-center hide">Siguiente aplicaci&oacute;n</th>
+								<th class="text-right">Unitario</th>
+								<th class="text-right">Desc</th>
+								<th class="text-right">Leal</th>
+								<th class="text-center hide">Motivo</th>
+								<th class="text-right">Subtotal</th>
+								<th class="text-right">IVA</th>
+								<th class="text-right">Total</th>
+								<th></th>
+							</tr>
+						</thead>
+						<tbody>
+						<tr class="nodata">
+							<td colspan="9" class="text-center p-10 nodata">No se han agregado conceptos a la visita</td>
+						</tr>
+						</tbody>
+						<tfoot>
+							<tr class="bg-secondary text-white">
+								<th class="text-right" colspan="10">Suma de conceptos</th>
+								<th class="text-right" id="total-visita">$ 0.00</th>
+								<th></th>
+							</tr>
+						</tfoot>
+					</table>
+				</div>
+			</div>
+		</div>
+		<div class="card b-all m-b-15">
+			<div class="card-header link" data-toggle="collapse" data-target="#div-pagos">
+				<h5 class="m-b-0">
+					Finalizaci&oacute;n de la visita
+					<i class="mdi mdi-arrow-expand pull-right"></i> 
+				</h5>
+			</div>
+			<div class="card-body collapse show" id="div-pagos">
+				<input type="hidden" id="pago-id" value="0">
+				<div class="table-responsive">
+					<table id="tbl-pagos" class="table table-hover table-striped w-100 mw-100">
+						<thead>
+							<tr>
+								<th class="text-center">Fecha</th>
+								<th class="text-center">Registrado</th>
+								<th class="text-left">Colaborador</th>
+								<th class="text-justify w-25">Nota</th>
+								<th class="text-center">M&eacute;todo</th>
+								<th class="text-right">Monto</th>
+								<th><a href="#" data-popup="tooltip" title="Agregar Pago" class="btn btn-xs btn-success" id="btnAddPago"><i class="fa fa-plus"></i></a></th>
+							</tr>
+						</thead>
+						<tbody></tbody>
+						<tfoot>
+							<tr>
+								<td class="text-right" colspan="5">Suma de pagos</td>
+								<td class="text-right" colspan="2" id="total-pagos">$ 0.00</td>
+							</tr>
+						</tfoot>
+					</table>
+				</div>
+				<div class="row">
+					<div class="col-sm-8">
+						<div class="form-group row">
+							<label for="visita-fecha" class="col-sm-2 text-right">Fecha de la visita *</label>
+							<div class="col-sm-4">
+								<input type="text" class="form-control" id="visita-fecha" readonly="readonly">
+							</div>
+							<label for="visita-facturar" class="col-sm-2 text-right">Factura *</label>
+							<div class="col-sm-4">
+								<select id="visita-facturar" class="form-control">
+									<option value="0" selected="selected">Sin factura</option>
+									<option value="1">Por facturar</option>
+									<option class="hide" value="2">Facturado</option>
+								</select>
+							</div>
+						</div>
+						<div class="form-group row m-b-0">
+							<label for="visita-observaciones" class="col-sm-2 text-right">Observaciones</label>
+							<div class="col-sm-10">
+								<textarea id="visita-observaciones" cols="30" rows="3" class="form-control" placeholder="Observaciones para el propietario"></textarea>
+							</div>
+						</div>
+					</div>
+					<div class="col-sm-4">
+						<div class="form-group row m-b-0">
+							<!-- <div class="col-sm-12 px-0 hide box-iva"> -->
+							<div class="col-sm-12 px-0">
+								<label for="visita-subtotal" class="text-right font-weight-bold col-sm-5 align-middle" style="line-height: 38px;"><small>SUBTOTAL</small></label>
+								<div class="col-sm-7 pull-right pl-0">
+									<div class="input-group">
+										<div class="input-group-prepend">
+											<div class="input-group-text">$</div>
+										</div>
+										<input type="text" id="visita-subtotal" class="form-control text-right" readonly="readonly" value="0.00">
+									</div>
+								</div>
+							</div><br><br>
+							<div class="col-sm-12 px-0">
+								<label for="visita-descuento" class="text-right font-weight-bold col-sm-5 align-middle" style="line-height: 38px;"><small>DESCUENTO</small></label>
+								<div class="col-sm-7 pull-right pl-0">
+									<div class="input-group">
+										<div class="input-group-prepend">
+											<div class="input-group-text">$</div>
+										</div>
+										<input type="text" id="visita-descuento" class="form-control text-right" readonly="readonly" value="0.00">
+									</div>
+								</div>
+							</div><br><br>
+							<div class="col-sm-12 px-0 hide box-iva">
+								<label for="visita-iva" class="text-right font-weight-bold col-sm-5 align-middle" style="line-height: 38px;"><small>IVA</small></label>
+								<div class="col-sm-7 pull-right pl-0">
+									<div class="input-group">
+										<div class="input-group-prepend">
+											<div class="input-group-text">$</div>
+										</div>
+										<input type="text" id="visita-iva" class="form-control text-right" readonly="readonly" value="0.00">
+									</div>
+								</div>
+							</div><br><br>
+							<div class="col-sm-12 px-0">
+								<label for="visita-total" class="text-right font-weight-bold col-sm-5 align-middle" style="line-height: 38px;"><small>TOTAL</small></label>
+								<div class="col-sm-7 pull-right pl-0">
+									<div class="input-group">
+										<div class="input-group-prepend">
+											<div class="input-group-text">$</div>
+										</div>
+										<input type="text" id="visita-total" class="form-control text-right" readonly="readonly" value="0.00">
+									</div>
+								</div>
+							</div><br><br>
+							<div class="col-sm-12 px-0">
+								<label for="visita-pagado" class="text-right font-weight-bold col-sm-5 align-middle" style="line-height: 38px;"><small>PAGADO</small></label>
+								<div class="col-sm-7 pull-right pl-0">
+									<div class="input-group">
+										<div class="input-group-prepend">
+											<div class="input-group-text">$</div>
+										</div>
+										<input type="text" id="visita-pagado" class="form-control text-right" readonly="readonly" value="0.00">
+									</div>
+								</div>
+							</div><br><br>
+							<div class="col-sm-12 px-0">
+								<label for="visita-saldo" class="text-right font-weight-bold col-sm-5 align-middle" style="line-height: 38px;"><small>SALDO</small></label>
+								<div class="col-sm-7 pull-right pl-0">
+									<div class="input-group">
+										<div class="input-group-prepend">
+											<div class="input-group-text">$</div>
+										</div>
+										<input type="text" id="visita-saldo" class="form-control text-right" readonly="readonly" value="0.00">
+									</div>
+								</div>
+							</div><br><br>
+							<div class="col-sm-12 px-0 finalizar">
+								<div class="col-sm-7 offset-sm-5 pl-0">
+									<input type="checkbox" id="visita-finalizar" class="form-control">
+									<label for="visita-finalizar">Finalizar visita</label>
+								</div>
+							</div>
+							<div class="col-sm-12 px-0 hide visita-cambio finalizar"><br>
+								<label class="text-right font-weight-bold col-sm-5"><small class="font-weight-bold">ACCI&Oacute;N SALDO</small></label>
+								<div class="col-sm-7 pull-right pl-0">
+									<div class="col-sm-12">
+										<input type="radio" id="saldo-abonar" name="saldo" class="form-control">
+										<label for="saldo-abonar"><small>Abonar saldo a favor</small></label>
+									</div>
+									<div class="col-sm-12">
+										<input type="radio" id="saldo-cambio" name="saldo" class="form-control" checked="checked">
+										<label for="saldo-cambio"><small>Dar cambio</small></label>
+									</div>
+									<div class="input-group">
+										<div class="input-group-prepend">
+											<div class="input-group-text">$</div>
+										</div>
+										<input type="text" id="saldo-cantidad" class="form-control text-right" readonly="readonly" value="0.00">
+									</div>
+								</div>
+							</div>
+							<div class="col-sm-12 m-t-10 hide finalizar-visita finalizar">
+								<div class="alert alert-danger">
+									<span class="fa fa-info-circle"></span>
+									<small>Al finalizar la visita ya no podr&aacute;s modificarla.</small>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+
+		<div class="actions float-right">
+			<button type="button" class="btn btn-lg btn-inverse waves-effect waves-light m-r-20" id="btnExit"><?= isset($visita)? 'Salir': 'Cancelar' ?></button>
+			<button type="button" class="btn btn-lg btn-success waves-effect waves-light" id="btnSaveVisita"><?= isset($visita)? 'Guardar': 'Crear' ?></button>
+		</div>
+		<br>
+		<br>
+	</div>
+	<div id="frm-item" class="modal fade" data-backdrop="static" data-keyboard="false" tabindex="-1">
+		<div class="modal-dialog modal-md">
+			<div class="modal-content d-flex">
+				<div class="modal-header">
+					<h4 class="modal-title">Agregar concepto</h4>
+					<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+						<span aria-hidden="true">&times;</span>
+					</button>
+				</div>
+				<div class="modal-body">
+					<div class="form-group row mb-0">
+						<label for="item-categoria" class="col-form-label col-form-label-sm pb-0 box-hidden box-categoria text-right col-sm-4">Categor&iacute;a:</label>
+						<div class="col-sm-8 box-hidden box-categoria">
+							<label class="col-form-label col-form-label-sm pb-0 border-0" id="item-categoria"></label>
+						</div>
+						<label for="item-subcategoria" class="col-form-label col-form-label-sm pb-0 pt-0 box-hidden box-subcategoria text-right col-sm-4">Subcategor&iacute;a:</label>
+						<div class="col-sm-8 box-hidden box-subcategoria">
+							<label class="col-form-label col-form-label-sm pb-0 pt-0 border-0" id="item-subcategoria"></label>
+						</div>
+						<label for="item-tipo" class="col-form-label col-form-label-sm pb-0 pt-0 box-hidden box-tipo text-right col-sm-4">Tipo:</label>
+						<div class="col-sm-8 box-hidden box-tipo">
+							<label class="col-form-label col-form-label-sm pb-0 pt-0 border-0" id="item-tipo"></label>
+						</div>
+						<label for="item-concepto" class="col-form-label col-form-label-sm pb-0 pt-0 box-hidden box-concepto text-right col-sm-4">Concepto:</label>
+						<div class="col-sm-8 box-hidden box-concepto">
+							<label class="col-form-label col-form-label-sm pb-0 pt-0 border-0" id="item-concepto"></label>
+						</div>
+						<label for="item-existencia" class="col-form-label col-form-label-sm pb-0 pt-0 box-hidden box-existencia text-right col-sm-4">Existencia:</label>
+						<div class="col-sm-2 box-hidden box-existencia">
+							<label class="col-form-label col-form-label-sm pb-0 pt-0 border-0" id="item-existencia"></label>
+						</div>
+					</div>
+					<hr>
+					<div class="form-group row">
+						<label class="col-sm-4 col-form-label ml-0 text-right" for="item-precio">Precio *</label>
+						<div class="col-sm-4">
+							<div class="input-group">
+								<div class="input-group-prepend">
+									<div class="input-group-text">$</div>
+								</div>
+								<input type="text" id="item-precio" placeholder="Precio" class="form-control required">
+							</div>
+						</div>
+					</div>
+					<div class="form-group row m-b-15">
+						<label class="col-sm-4 col-form-label ml-0 text-right" for="item-fecha">Fecha *</label>
+						<div class="col-sm-4">
+							<input type="text" id="item-fecha" placeholder="Fecha" class="form-control required" readonly="readonly">
+						</div>
+					</div>
+					<div class="form-group row m-b-15">
+						<label class="col-sm-4 col-form-label ml-0 text-right" for="item-colaborador">Asignar a</label>
+						<div class="col-sm-8">
+							<select id="item-colaborador" class="form-control" data-width="100%" data-live-search="true"></select>
+						</div>
+					</div>
+					<div class="form-group row m-b-15">
+						<label class="col-sm-4 col-form-label ml-0 text-right" for="item-mascota">Mascota *</label>
+						<div class="col-sm-8">
+							<select id="item-mascota" class="form-control"></select>
+						</div>
+					</div>
+					<div class="form-group row m-b-15 box-hidden box-cantidad">
+						<label class="col-sm-4 col-form-label ml-0 text-right" for="item-cantidad">Cantidad *</label>
+						<div class="col-sm-8">
+							<input type="text" id="item-cantidad" placeholder="Cantidad" class="form-control required">
+						</div>
+					</div>
+					<div class="form-group row m-b-15 box-hidden box-lote">
+						<label class="col-sm-4 col-form-label ml-0 text-right" for="item-lote">Lote</label>
+						<div class="col-sm-8">
+							<input type="text" id="item-lote" placeholder="Lote" class="form-control">
+						</div>
+					</div>
+					<div class="form-group row m-b-15 box-hidden box-siguiente_aplicacion">
+						<label class="col-sm-4 col-form-label ml-0 text-right" for="item-siguiente_app">Sig. Aplicaci&oacute;n</label>
+						<div class="col-sm-8">
+							<input type="date" id="item-siguiente_app" class="form-control">
+						</div>
+					</div>
+					<div class="form-group row m-b-15 box-hidden box-recordatorio offset-sm-3">
+						<input type="checkbox" id="item-recordatorio" class="form-control">
+						<label class="col-form-label" for="item-recordatorio">Enviar recordatorio pr&oacute;xima aplicaci&oacute;n</label>
+					</div>
+					<div class="card b-all m-b--0">
+						<div class="card-header link" data-toggle="collapse" data-target="#div-descuento">
+							<h5 class="m-b-0">
+								Descuento
+								<i class="mdi mdi-arrow-expand pull-right"></i> 
+							</h5>
+						</div>
+						<div class="card-body collapse alert alert-secondary mb-0 pb-0" id="div-descuento" role="alert">
+							<div class="form-horizontal">
+								<div class="form-group row m-b-5">
+									<div class="col-sm-6 pl-0">
+										<div class="input-group">
+											<div class="input-group-prepend">
+												<div class="input-group-text">
+													<span class="fa fa-lg fa-dollar"></span>
+												</div>
+											</div>
+											<input type="text" id="item-descuento_monto" class="form-control" placeholder="Monto">
+										</div>
+									</div>
+									<div class="col-sm-6 pr-0">
+										<div class="input-group">
+											<input type="text" id="item-descuento_porcentaje" class="form-control" placeholder="Porcentaje">
+											<div class="input-group-append">
+												<div class="input-group-text">
+													<span class="font-weight-bold">%</span>
+												</div>
+											</div>
+										</div>
+									</div>
+								</div>
+								<div class="form-group row">
+									<div class="col-sm-12 px-0">
+										<input type="text" id="item-descuento_motivo" class="form-control" placeholder="Motivo del descuento">
+									</div>
+								</div>
+								<div class="form-group row m-b-5">
+									<div class="col-sm-12 pl-0">
+										<div class="input-group">
+											<div class="input-group-prepend">
+												<div class="input-group-text">
+													<small>Desc. LEAL</small>
+												</div>
+											</div>
+											<input type="number" id="item-puntos_leal" class="form-control text-right" placeholder="Puntos Leal" <?= $propietario->id == $_SESSION['prop_farm'] ? 'readonly' : ($propietario->id == $_SESSION['cliente_general'] ? 'readonly' : '') ?>>
+											<div class="input-group-prepend">
+												<div class="input-group-text">
+													<small>Ptos</small> => $
+												</div>
+											</div>
+											<input type="text" id="item-descuento_leal" class="form-control text-right" placeholder="Descuento Leal" readonly>
+											<div class="input-group-append">
+												<div class="input-group-text"><small>.00</small></div>
+											</div>
+										</div>
+									</div>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="modal-footer d-flex">
+					<div class="row mx-0 px-0 col-sm-12">
+						<div class="col-sm-12 mx-0 px-0">
+							<div class="form-group">
+								<div class="pull-right">
+									<input type="hidden" id="item-id" class="data-item" value="0">
+									<button type="button" class="btn btn-inverse waves-effect waves-light m-r-20" data-dismiss="modal">Cancelar</button>
+									<button type="button" class="btn btn-success waves-effect waves-light" id="btnSaveProducto">Agregar</button>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+	<div id="frm-pago" class="modal fade" data-backdrop="static" data-keyboard="false" tabindex="-1">
+		<div class="modal-dialog modal-md">
+			<div class="modal-content d-flex p-2">
+				<div class="modal-header">
+					<h3 class="modal-title">Registrar pago</h3>
+					<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+						<span aria-hidden="true">&times;</span>
+					</button>
+				</div>
+				<div class="modal-body">
+					<div class="form-group row">
+						<label class="col-sm-4 col-form-label ml-0 font-weight-bold text-right" for="pago-fecha">Fecha *</label>
+						<div class="col-sm-8">
+							<input type="text" id="pago-fecha" placeholder="Fecha" class="form-control required" max="<?= date('Y-m-d') ?>" readonly="readonly">
+						</div>
+					</div>
+					<div class="form-group row">
+						<label class="col-sm-4 col-form-label ml-0 font-weight-bold text-right" for="pago-monto">Monto *</label>
+						<div class="col-sm-8">
+							<div class="input-group">
+								<div class="input-group-prepend">
+									<div class="input-group-text">$</div>
+								</div>
+								<input type="text" id="pago-monto" placeholder="Monto" class="form-control required">
+							</div>
+						</div>
+					</div>
+					<div class="form-group row">
+						<label class="col-sm-4 col-form-label ml-0 font-weight-bold text-right" for="pago-metodo_pago">M&eacute;todo</label>
+						<div class="col-sm-8">
+							<select id="pago-metodo_pago" class="form-control">
+								<?php foreach($mpago as $pago): if((intval($pago->id)!=$_SESSION['metodo_pago_saldo_favor'] || floatval($afavor)>0 || (isset($visita) && isset($visita->pagos) && count(array_filter($visita->pagos, function($pago) { return $pago->metodo == $_SESSION['metodo_pago_saldo_favor']; }))>0)) && (intval($pago->id)!=$_SESSION['metodo_pago_otros'] || in_array(MOD_PAGO_OTRO, $permisos))): ?>
+								<option value="<?= $pago->id ?>"><?= $pago->nombre ?></option>
+								<?php endif; endforeach; ?>
+							</select>
+						</div>
+					</div>
+					<div class="form-group row">
+						<label class="col-sm-4 col-form-label ml-0 font-weight-bold text-right" for="pago-nota">Nota</label>
+						<div class="col-sm-8">
+							<textarea id="pago-nota" class="form-control" cols="30" rows="2" placeholder="Nota"></textarea>
+						</div>
+					</div>
+				</div>
+				<div class="modal-footer d-flex">
+					<div class="row mx-0 px-0 col-sm-12">
+						<div class="col-sm-12 mx-0 px-0">
+							<div class="form-group">
+								<div class="pull-right">
+									<input type="hidden" id="item-id" class="data-item" value="0">
+									<button type="button" class="btn btn-inverse waves-effect waves-light m-r-20" data-dismiss="modal">Cancelar</button>
+									<button type="button" class="btn btn-success waves-effect waves-light" id="btnSavePago">Guardar</button>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="modal fade" id="frm-controlado" tabindex="-1" role="dialog" data-backdrop="static" data-keyboard="false">
+		<div class="modal-dialog modal-lg" role="document">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title text-danger">Medicamento de Uso controlado</h5>
+						<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+							<span aria-hidden="true">&times;</span>
+						</button>
+				</div>
+				<div class="modal-body">
+					<div class="form-horizantal">
+						<div class="form-group row">
+							<label for="uso-dias" class="col-md-4 col-form-label text-right">Días totales de tratamiento</label>
+							<div class="col-md-2">
+								<input type="number" id="uso-dias" class="form-control" placeholder="totales">
+							</div>
+							<label for="uso-surtidos" class="col-md-4 col-form-label text-right">Días surtidos en esta visita</label>
+							<div class="col-md-2">
+								<input type="number" id="uso-surtidos" class="form-control" placeholder="surtidos">
+							</div>
+						</div>
+					</div>
+					<hr>
+					Se ha surtido <strong class="font-weight-bold"></strong> anteriormente
+					<table class="table table-hover table-striped" id="tbl-controlado">
+						<thead>
+							<tr>
+								<th>Fecha</th>
+								<th class="text-center">Cant</th>
+								<th>Mascota</th>
+								<th>Receta</th>
+								<th>Resurtir</th>
+								<th class="text-center">Completo</th>
+								<th class="text-center">Pend</th>
+							</tr>
+						</thead>
+						<tbody></tbody>
+					</table>
+				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-danger" data-dismiss="modal">No agregar</button>
+					<button type="button" class="btn btn-primary" id="btnAddControlado">Agregar</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="modal fade" id="frm-cirugia" tabindex="-1" role="dialog" data-backdrop="static" data-keyboard="false">
+		<div class="modal-dialog" role="document">
+			<div class="modal-content">
+				<div class="modal-header">
+					<h5 class="modal-title text-info">Material / Medicamento para Cirugía</h5>
+						<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+							<span aria-hidden="true">&times;</span>
+						</button>
+				</div>
+				<div class="modal-body">
+					<!-- Seleccione de la lista la cantidad de material / medicamento para la cirugía -->
+					<table class="table table-hover table-striped table-sm" id="tbl-cirugia">
+						<thead>
+							<tr>
+								<th>Producto</th>
+								<th class="text-center" style="width:75px">Cant</th>
+							</tr>
+						</thead>
+						<tbody></tbody>
+					</table>
+				</div>
+				<div class="modal-footer">
+					<button type="button" class="btn btn-secondary" data-dismiss="modal">Cancelar</button>
+					<button type="button" class="btn btn-primary" id="btnAddCirugia">Agregar Cirugía</button>
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<div class="form-horizontal hide" id="form-medica">
+		<div class="form-group row m-b-10 lote">
+			<label class="col-sm-4 col-form-label-sm text-right" for="">Lote</label>
+			<div class="col-sm-2">
+				<input type="text" class="form-control form-control-sm" placeholder="Lote" data-field="lote">
+			</div>			
+			<label class="col-sm-2 col-form-label-sm text-right" for="">Sig. aplic.</label>
+			<div class="col-sm-3">
+				<input type="date" class="form-control form-control-sm" placeholder="DD/MM/YYYY" data-field="siguiente">
+			</div>
+		</div>
+		<div class="form-group row m-b-0">
+			<label class="col-sm-4 col-form-label-sm text-right" for="">Notas</label>
+			<div class="col-sm-7">
+				<textarea class="form-control form-control-sm" rows="3" placeholder="Notas internas" data-field="notas"></textarea>
+			</div>
+		</div>
+	</div>
+
+	<div class="form-horizontal hide" id="form-vacunas">
+		<div class="form-group row vacuna-aplicada">
+			<label class="col-sm-2 col-form-label-sm text-center" for="nomVacuna">Primera Vacuna</label>
+			<div class="col-sm-2">
+				<input type="text" class="form-control form-control-sm" id="nomVacuna" placeholder="Nombre de la vacuna" disabled>
+			</div>
+			<label class="col-sm-2 col-form-label-sm text-right" for="dateAplicacion">Aplicación</label>
+			<div class="col-sm-2">
+				<input type="text" class="form-control form-control-sm" id="dateAplicacion" disabled>
+			</div>
+			<label class="col-sm-1 col-form-label-sm text-right" for="">Lote</label>
+			<div class="col-sm-2">
+				<input type="text" id="loteVacuna" class="form-control form-control-sm" data-field="loteVacuna" placeholder="Lote">
+			</div>		
+		</div>
+		<div class="form-group row m-b-0">
+			<label class="col-sm-1 col-form-label-sm text-right" for="">Notas</label>
+			<div class="col-sm-10">
+				<textarea id="notasVacuna" class="form-control form-control-sm" rows="3" data-field="notasVacuna" placeholder="Notas internas"></textarea>
+			</div>
+		</div>
+	</div>
+
+	<div class="form-horizontal hide" id="form-manejo">
+		<div class="form-group row m-b-0">
+			<label class="col-sm-4 col-form-label-sm text-right" for="">Reporte</label>
+			<div class="col-sm-7">
+				<textarea class="form-control form-control-sm" rows="4" placeholder="Reporte" data-field="notas"></textarea>
+			</div>
+		</div>
+	</div>
+	<div class="form-horizontal hide" id="form-estetica">
+		<div class="form-group row m-b-10 estetica">
+			<label class="col-sm-4 col-form-label-sm text-right" for="">Hora de llegada</label>
+			<div class="col-sm-2">
+				<input type="time" class="form-control form-control-sm" data-field="llegada">
+			</div>
+			<label class="col-sm-3 col-form-label-sm text-right" for="">Hora de entrega</label>
+			<div class="col-sm-2">
+				<input type="time" class="form-control form-control-sm" data-field="entrega">
+			</div>
+		</div>
+		<div class="form-group row m-b-10 pension">
+			<label class="col-sm-4 col-form-label-sm text-right" for="">Fecha de llegada</label>
+			<div class="col-sm-2">
+				<input type="date" class="form-control form-control-sm" data-field="fecha_llegada">
+			</div>
+			<label class="col-sm-3 col-form-label-sm text-right" for="">Hora de llegada</label>
+			<div class="col-sm-2">
+				<input type="time" class="form-control form-control-sm" data-field="llegada">
+			</div>
+		</div>
+		<div class="form-group row m-b-10 pension">
+			<label class="col-sm-4 col-form-label-sm text-right" for="">Fecha de entrega</label>
+			<div class="col-sm-2">
+				<input type="date" class="form-control form-control-sm" data-field="fecha_entrega">
+			</div>
+			<label class="col-sm-3 col-form-label-sm text-right" for="">Hora de entrega</label>
+			<div class="col-sm-2">
+				<input type="time" class="form-control form-control-sm" data-field="entrega">
+			</div>
+		</div>
+		<div class="form-group row m-b-0">
+			<label class="col-sm-4 col-form-label-sm text-right" for="">Notas</label>
+			<div class="col-sm-7">
+				<textarea class="form-control form-control-sm" rows="3" placeholder="Notas internas" data-field="notas"></textarea>
+			</div>
+		</div>
+	</div>
+	<div class="form-horizontal hide" id="form-otro">
+		<div class="form-group row m-b-0">
+			<label class="col-sm-4 col-form-label-sm text-right" for="">Descripción</label>
+			<div class="col-sm-7">
+				<textarea class="form-control form-control-sm" rows="4" placeholder="Descripción" data-field="notas"></textarea>
+			</div>
+		</div>
+	</div>
+
+	<div class="modal fade" id="frm-delProducto" data-backdrop="static" data-keyboard="false" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content d-flex p-2">
+                <div class="modal-header">
+					<h3 class="modal-title"><i class="mdi mdi-alert-circle-outline"></i> Eliminar concepto</h3>
+					<button type="button" class="close" data-dismiss="modal" aria-label="Close">
+						<span aria-hidden="true">&times;</span>
+					</button>
+                </div>
+                <div class="modal-body">
+                    Se eliminará el concepto <strong></strong> de la visita.<br>
+					¿Desea continuar?
+                </div>
+				<div class="input-group hide" id="textAreaMotivo">
+					<textarea class="form-control data-item text-left" id="motivoCancelVentaP" rows="3" placeholder="Describa el motivo de cancelación."></textarea>
+				</div>
+                <div class="modal-footer">
+                    <a href="#" class="btn btn-default" data-dismiss="modal">Cancelar</a>
+                    <button id="btnDelVentaProd" type="button" class="btn btn-danger">Si, eliminar</button>
+                    <input type="hidden" id="idInfraccionDel" value="0">
+                </div>
+            </div>
+        </div>
+    </div>
+
+	<?php include 'footer.phtml'; ?>
+	<script src="<?=URL_ROOT?>/assets/plugins/inputmask/dist/min/jquery.inputmask.bundle.min.js"></script>
+	<script src="<?=URL_ROOT?>/assets/plugins/lightbox/js/lightbox.js"></script>
+	<script src="<?=URL_ROOT?>/assets/js/mask.init.js"></script>
+	<script src="<?=URL_ROOT?>/assets/plugins/bootstrap-datepicker/bootstrap-datepicker.min.js"></script>
+	<script src="<?=URL_ROOT?>/assets/plugins/bootstrap-datepicker/bootstrap-datepicker.es.js"></script>
+	<script src="<?=URL_ROOT?>/assets/plugins/datetimepicker/js/moment.js"></script>
+	<script src="<?=URL_ROOT?>/assets/plugins/datatables/jquery.dataTables.min.js"></script>
+	<script src="<?=URL_ROOT?>/assets/plugins/bootstrap-select/bootstrap-select.min.js"></script>
+	<script src="<?=URL_ROOT?>/assets/plugins/md5/md5.min.js"></script>
+	<script src="<?=URL_ROOT?>/assets/plugins/confirm/js/jquery-confirm.min.js"></script>
+
+	<script>
+		$(function() {
+			arrMascotas = '<?= (isset($_GET['mascotas']) && $_GET['mascotas']!='0')? $_GET['mascotas']: '' ?>'.split(',').filter(x => x.length > 0);
+			$apiUrl = '<?= URL_API ?>';
+			$mascota_id = <?= (isset($_GET['mascotas']) && is_numeric($_GET['mascotas']))? $_GET['mascotas']: 0 ?>;
+			$salir = true;
+			$idColaborador = '<?= $_SESSION['colaborador']->id ?>';
+			<?php if(isset($propietario->pet)): ?>
+			$petsCount = <?= $propietario->pets ?>;
+			$pet = $.parseJSON('<?= $propietario->pet ?>');
+			<?php else: ?>
+			$petsCount = 0;
+			$pet = null;
+			<?php endif; ?>
+			edit_monto = true;
+			toastr.options = {									
+				"positionClass": "toast-top-right",
+				"timeOut": "1000",
+			}
+			var idVacuna = 0;
+
+			$(window).on('beforeunload', function(e) {
+				if(!$salir) { return false; }
+				<?php if(isset($visita) && intval($visita->colaborador_id) == intval($_SESSION['colaborador']->id)) : ?>
+				$.ajax({
+					url: $apiUrl+'visita/cerrarVisita/<?= $visita->id ?>',
+					type: 'PUT',
+					dataType: 'json',
+					success: function(resp) {
+						if(!resp) {
+							toastr["error"]("Oops!", resp.message);
+						}
+						return false;
+					}
+				});
+				setTimeout(function() {
+					$.ajax({
+						url: $apiUrl+'visita/abrirVisita/<?= $visita->id ?>',
+						type: 'PUT',
+						dataType: 'json',
+						success: function(resp) {
+							if(!resp.response) {
+								toastr["error"]("Oops!", resp.message);
+							}
+						}
+					});
+				}, 10000);
+				<?php endif; ?>
+			});
+
+			<?php if(isset($propietario)): ?> $('#propietario-id').val('<?= $propietario->id ?>'); <?php endif; ?>
+			id_cliente = $('#propietario-id').val();
+
+			$('#item-precio, #item-descuento_monto').inputmask({ alias: "numeric", groupSeparator: ',', digits: 2, digitsOptional: false });
+			$('#item-cantidad').inputmask({ alias: "numeric", groupSeparator: ',', digits: 2, digitsOptional: false });
+			$('#item-descuento_porcentaje').inputmask('Regex', { regex: "^[1-9][0-9]?$|^100$" });
+
+			date = new Date();
+			month = date.getMonth()+1;
+			year = date.getFullYear();
+			$('#item-fecha, #pago-fecha, #visita-fecha').datepicker({
+				autoclose: true,
+				format: 'dd/mm/yyyy',
+				startDate: '01-'+month+'-'+year,
+				endDate: '0',
+				language: 'es'
+			}).datepicker('setDate', '0');
+
+			$('#pago-fecha').change(function(){
+				fecha = $(this).val();
+				metodo = $('#pago-metodo_pago').val();
+				if(fecha != moment().format('DD/MM/YYYY')) {
+					$('#pago-metodo_pago option[value="1"]').addClass('hide');
+					if(metodo == 1){
+						$('#pago-metodo_pago').val(-1);
+					}else{
+						$('#pago-metodo_pago').val(metodo);
+					}
+				}else{
+					$('#pago-metodo_pago option[value="1"]').removeClass('hide');
+					if(metodo == 1){
+						$('#pago-metodo_pago').val(1);
+					}else{
+						$('#pago-metodo_pago').val(metodo);
+					}
+				}
+			});
+			
+			$('#pago-monto').inputmask({ alias: "numeric", groupSeparator: ',', digits: 2, digitsOptional: false });
+
+			getItems(); 
+			cleanTable('tbl-pagos'); createTable('tbl-pagos', false);
+			function getItems(arrColumns=null) {
+				blockPage();
+				cleanTable('tbl-conceptos');
+				createTable('tbl-conceptos', true, arrColumns, $('.paginate_button.current').text());
+				$.unblockUI();
+			}
+
+			<?php if(isset($visita)) : ?>
+				$('#visita-id').val('<?= $visita->id ?>');
+				$('#visita-id').data('facturar', <?= $visita->venta->facturar ?>);
+				$('#visita-id').data('propietario', <?= $visita->propietario_id ?>);
+				<?php if(intval($visita->colaborador_id) == 0) : ?>
+					$.ajax({
+						url: $apiUrl+'visita/abrirVisita/<?= $visita->id ?>',
+						type: 'PUT',
+						dataType: 'json',
+						success: function(resp) {
+							if(resp.response) { loadInfVisita(); }
+							else {
+								swal({ type: "error", title: "Oops!", text: resp.message }, function(respuesta) {
+									window.location.href = '<?= URL_ROOT."/propietario/".md5($visita->propietario_id) ?>';
+								});
+							}
+						}
+					});
+				<?php else : ?>
+					if($idColaborador == parseInt('<?= $visita->colaborador_id ?>')) { loadInfVisita(); }
+					else {
+						swal({ type: "warning", title: "Visita no disponible", text: "La visita está siendo modificada por alguien más" }, function(respuesta) { 
+							window.location.href = '<?= URL_ROOT."/propietario/".md5($visita->propietario_id) ?>';
+						});
+					}
+				<?php endif; ?>
+
+				function loadInfVisita() {
+					blockPage();
+					<?php foreach($visita->venta->detalles as $detalle): 
+							$descuento = intval($detalle->descuento_porcentaje)==0? $detalle->descuento_importe : ($detalle->subtotal*$detalle->descuento_porcentaje/100);
+						?>
+						data = { 
+							id: '<?= $detalle->id ?>', 
+							venta_id: '<?= $detalle->venta_id ?>', 
+							producto_id: '<?= $detalle->producto_id ?>', 
+							fecha_asigno: '<?= $detalle->fecha_asigno ?>', 
+							colaborador_id: '<?= $detalle->colaborador_id ?>', 
+							colaborador: '<?= $detalle->colaborador ?>', 
+							cantidad: '<?= $detalle->cantidad ?>', 
+							producto: '<?= $detalle->producto ?>', 
+							mascota_id: '<?= $detalle->mascota_id!=null? $detalle->mascota_id: 0 ?>', 
+							mascota: '<?= isset($detalle->mascota)? $detalle->mascota: 'N/A' ?>', 
+							lote: '<?= $detalle->lote ?>', 
+							recordatorio: '<?= $detalle->recordatorio ?>', 
+							siguiente_aplicacion: '<?= $detalle->siguiente_aplicacion ?>', 
+							precio: '$ <?= $detalle->precio ?>',
+							precioproducto: <?= $detalle->productoPrecio ?>,
+							descuento_importe: '<?= $detalle->descuento_importe ?>', 
+							descuento_porcentaje: '<?= $detalle->descuento_porcentaje ?>', 
+							descuento: '<?= intval($detalle->descuento_porcentaje)==0? "$ $detalle->descuento_importe": "$detalle->descuento_porcentaje %" ?>', 
+							descuento_motivo: '<?= $detalle->descuento_motivo ?>', 
+							iva:<?= $detalle->iva ?>, 
+							iva_importe:<?= $detalle->iva_importe ?>, 
+							total: '$<?= number_format($detalle->subtotal - $descuento - $detalle->descuento_leal, 2) ?>', 
+							es_paquete: '<?= $detalle->es_paquete ?>', 
+							servicio: '<?= $detalle->servicio ?>',
+							paquete_vacunas: '<?= $detalle->paquete_vacunas ?>'
+						};
+						data['colaborador_asigno_id'] = <?= $detalle->colaborador_asigno_id ?>;
+						data['colaborador_asigno'] = '<?= $detalle->colaborador_asigno ?>';
+						data['fecha_asigno'] = '<?= $detalle->fecha_asigno ?>';
+						data['facturable'] = '<?= $detalle->facturable ?>';
+						data['uso_controlado'] = '<?= $detalle->uso_controlado ?>';
+						data['categoria_id'] = '<?= $detalle->categoria_id ?>';
+						data['categoria'] = '<?= $detalle->categoria ?>';
+						data['subcategoria'] = '<?= $detalle->subcategoria ?>';
+						data['belleza'] = <?= json_encode($detalle->belleza) ?>;
+						data['dataVacuna'] = <?= isset($detalle->dataVacuna) ? json_encode($detalle->dataVacuna) : '{}' ?>;
+						data['tipo_iva'] = <?= $detalle->tipo_iva ?>;
+						data['mascota_fallecida'] = <?= isset($detalle->mascota_fallecida) ? $detalle->mascota_fallecida : 0 ?>; 
+						data['descuento_leal'] = <?= $detalle->descuento_leal ?>;
+						data['puntos_leal'] = <?= $detalle->descuento_leal ?>;
+						data['primera_vacuna_id'] = '<?= isset($detalle->primera_vacuna_id) ? $detalle->primera_vacuna_id : '' ?>';
+						data['primera_vacuna_nombre'] = '<?= isset($detalle->primera_vacuna_nombre) ? $detalle->primera_vacuna_nombre : '' ?>';
+						data['primera_vacuna_aplicacion'] = '<?= isset($detalle->primera_vacuna_aplicacion) ? $detalle->primera_vacuna_aplicacion : '' ?>';
+						data['primera_vacuna_lote'] = '<?= isset($detalle->primera_vacuna_lote) ? $detalle->primera_vacuna_lote : '' ?>';
+						data['primera_vacuna_observaciones'] = '<?= isset($detalle->primera_vacuna_observaciones) ? $detalle->primera_vacuna_observaciones : '' ?>';
+
+						addRowDetalle(data);
+						idVacuna = data.primera_vacuna_id;
+
+					<?php endforeach; ?>
+					getTotalVisita();
+					
+					<?php foreach($visita->pagos as $pago) : ?>
+						data = { 'id': '<?= $pago->id ?>', 'fecha_registro': moment('<?= $pago->fecha_registro ?>', 'YYYY-MM-DD hh:mm:ss').format('DD/MM/YYYY hh:mm:ss'), 'fecha': moment('<?= $pago->fecha ?>', 'YYYY-MM-DD hh:mm:ss').format('DD/MM/YYYY'), 'dia_semana': '<?= $pago->dia_semana ?>', 'cantidad': '<?= $pago->cantidad ?>', 'metodo_pago_id': '<?= $pago->metodo ?>', 'metodo_pago': '<?= $pago->metodo_pago->nombre ?>', 'observaciones': '<?= nl2br($pago->observaciones) ?>', 'colaborador_id': '<?= $pago->colaborador_id ?>', 'colaborador': '<?= $pago->colaborador ?>' }
+						addRowPago(data);
+					<?php endforeach; ?>
+					getTotalPagos();
+
+					$('#visita-fecha').val(moment('<?= $visita->fecha_inicio ?>', 'YYYY-MM-DD hh:mm:ss').format('DD/MM/YYYY'));					
+					$('#visita-facturar').val('<?= $visita->venta->facturar ?>');
+
+					if($('#visita-facturar').val() == 2){
+						$('#visita-facturar').prop("disabled", true);
+					}else{
+						$('#visita-facturar').attr("disabled", false);
+					}
+					$('#visita-observaciones').html("<?= $visita->observaciones ?>");
+
+					setTimeout(() => {
+						if(<?= $visita->venta->facturar ?> != 0){
+							$('#visita-facturar').trigger('change');
+						}
+						$.unblockUI();
+					}, 1000);
+				}
+			<?php endif; ?>
+
+			function addDetalle(data) {
+				$('#btnSaveProducto').prop('disabled',true);
+				blockPage();
+				if(parseInt($('#visita-id').val()) != 0) {
+					copy = Object.assign(new Object(), data);
+					$.each(data, function(index, item) { if(index.includes('temp_')) { delete data[index]; } });
+					$.each(copy, function(index, item) { if(index.includes('temp_')) { delete copy[index]; copy[index.replace('temp_', '')] = item; } });
+
+					data.precio = parseFloat($.trim(data.precio.replace('$', ''))); 
+					data.total = parseFloat($.trim(data.total.replace('$', '')));
+					data.venta_id = '<?= isset($visita->venta_id) ? $visita->venta_id : 0 ?>';
+					cirugia = JSON.stringify(data.extra);
+					data.extra = {categoria: data.categoria_id, cirugia: cirugia};
+					if(id_cliente == <?= $_SESSION['prop_farm'] ?>) data.paquete = $('#paquete-venta').val();
+					delete(data.precioproducto);
+					$.post($apiUrl+'det_venta/add/', data, function(detalle) { 
+						if(detalle.response) {
+							copy.id = detalle.insertado;
+							copy.colaborador_asigno_id = <?= $_SESSION['colaborador']->id ?>;
+							copy.colaborador_asigno = '<?= $_SESSION['usuario']->nombre . " " . $_SESSION['usuario']->apellidos ?>';
+							copy.servicio = 0;
+							copy.precioproducto = data.precio;
+							copy.primera_vacuna_nombre = data.primera_vacuna_nombre;
+							copy.primera_vacuna_aplicacion = data.primera_vacuna_aplicacion;
+							idVacuna = detalle.idVacuna;
+							addRowDetalle(copy);
+							$('#tbl-items').DataTable().ajax.reload();
+							toastr["success"]("¡Listo!", "Se guardaron los datos correctamente.");
+							$('#btnSaveProducto').prop('disabled',false);
+							$.unblockUI();
+						} else { toastr["error"]("Oops!", detalle.message); }
+						ivaIncluido();
+						getTotalVisita();
+					}, 'json');
+				} else {
+					$.each(data, function(index, item) { if(index.includes('temp_')) { delete data[index]; data[index.replace('temp_', '')] = item; } });
+					data.colaborador_asigno_id = <?= $_SESSION['colaborador']->id ?>;
+					data.colaborador_asigno = '<?= $_SESSION['usuario']->nombre . " " . $_SESSION['usuario']->apellidos ?>';
+					data.servicio = 0;
+					data.precioproducto = $.trim(data.precio.replace('$', ''));					
+					$salir = false;
+					addRowDetalle(data); 
+					getTotalVisita();
+					toastr["success"]("¡Listo!", "Se guardaron los datos correctamente."); 
+					$('#btnSaveProducto').prop('disabled',false);
+					$.unblockUI();
+					$('#bus').focus();
+				}
+			}
+
+			function addRowDetalle(data) {
+				addNewRowDetalle(data);
+			}
+
+			function addNewRowDetalle(data) {
+				container = $('#tbl-detalle tbody'); 
+				$('#tbl-detalle tbody .nodata').remove();
+				tr = $('<tr data-id="'+data.producto_id+'" data-paquete="'+data.es_paquete+'" data-detalle="'+data.id+'" class="bg-light" data-facturable="'+data.facturable+'" data-controlado="'+data.uso_controlado+'" data-recordatorio="'+data.recordatorio+'" data-lote="'+data.lote+'" data-siguiente-aplicacion="'+data.siguiente_aplicacion+'" data-categoria="'+data.categoria_id+'" data-cat="'+data.categoria+'" data-subcategoria="'+data.subcategoria+
+				'" data-iva="'+data.tipo_iva+'" data-old-iva="'+data.iva+'" data-servicio="'+data.servicio+'" data-precio="'+data.precio+'" data-precio-producto="'+data.precioproducto+'" data-paquete_vacunas="'+data.paquete_vacunas+'"></tr>');//.appendTo(container);
+				tr.append('<td class="text-center"><small class="fecha">'+moment(data.fecha_asigno, 'YYYY-MM-DD').format('DD/MM/YYYY')+'</small></td>');
+				tr.append('<td class="text-left"><small class="colaborador" data-id="'+data.colaborador_id+'">'+data.colaborador+'</small><br /><small>Asigno: <span class="font-weight-bold colaborador_asigno" data-id="'+data.colaborador_asigno_id+'" data-fecha="'+data.fecha_asigno+'">'+data.colaborador_asigno+'</span></small></td>');
+				tr.append('<td class="text-center"><span class="cantidad">'+data.cantidad+'</span></td>');
+				fact = '';
+				controlado = '';
+				paq = data.es_paquete==1?' <i class="mdi mdi-hexagon-multiple fa-lg text-info" title="Paquete"></i>' : '';
+				if(data.paquete_vacunas == 0){
+					options = $('<div class="pull-right d-inline-block"></div>');
+					options.append('<a href="#" class="'+(data.servicio>0? 'hide': '')+' btn btn-xs btn-inline-block btnAplicacion m-0 p-0" title="Convertir en aplicación"><span class="fa fa-hand-o-right text-danger"></span></a> ');
+					options.append('<a href="#" class="'+(data.servicio>0? 'hide': '')+' btn btn-xs btn-inline-block btnMedicacion m-0 p-0" title="Convertir en medicación"><span class="mdi mdi-pill text-info"></span></a> ');
+					options.append('<a href="#" class="'+(data.servicio==0? 'hide': '')+' btn btn-xs btn-inline-block btnBack m-0 p-0" title="Cancelar"><span class="fa fa-arrow-left text-info"></span></a> ');
+				}else{
+					options = $('<div class="pull-right d-inline-block"></div>');
+				}
+				tr.append('<td class="text-left"><span class="concepto">'+options.html()+'<div class="text d-inline-block">'+(data.servicio==1? 'Aplicación ': (data.servicio==2? 'Medicación ': ''))+(data.producto!=undefined? data.producto: $('#item-concepto').text())+'</div>'+fact+controlado+paq+'</span></td>');
+				tr.append('<td class="text-center"><span class="mascota" data-id="'+data.mascota_id+'">'+data.mascota+'</span></td>');
+				tr.append('<td class="text-right"><small class="precio">'+data.precio+'</small></td>');
+				tr.append('<td class="text-right"><small class="descuento" data-motivo="'+data.descuento_motivo+'">'+data.descuento+'</small></td>');
+				tr.append('<td class="text-right"><small class="descuento_leal" data-puntos="'+data.puntos_leal+'">$ '+parseFloat(data.descuento_leal).toFixed(2)+'</small></td>');
+				tr.append('<td class="text-right"><span class="total">'+data.total+'</span></td>');
+				tr.append('<td class="text-right"><span class="iva">$ 0.00</span></td>');
+				tr.append('<td class="text-right"><span class="totalwiva">'+data.total+'</span></td>');
+
+				td = $('<td class="text-right"></td>').appendTo(tr);
+
+				if(data.fecha_asigno == moment().format('YYYY-MM-DD') || data.mascota_fallecida == 1) {
+					td.append('<button type="button" class="btn btn-xs btn-info btnEditProducto"><i class="mdi mdi-lead-pencil fa-lg"></i></button> ');
+					td.append('<a href="#" class="btn btn-xs btn-danger btnDelProducto"><i class="mdi mdi-delete fa-lg"></i></a>');
+				}else{
+					<?php if(in_array(MOD_EDIT_DEL_PROD_AGREGADO, $permisos)):?> {
+						td.append('<button type="button" class="btn btn-xs btn-info btnEditProducto"><i class="mdi mdi-lead-pencil fa-lg"></i></button> ');
+						td.append('<a href="#" class="btn btn-xs btn-danger btnDelProducto"><i class="mdi mdi-delete fa-lg"></i></a>');
+					}
+					<?php endif; ?>
+				}
+
+				existeCat = $('#tbl-detalle tbody [data-categoria="'+data.categoria_id+'"]').length;
+				if(existeCat){
+					pos = existeCat -1;
+					trprod = $('#tbl-detalle tbody [data-categoria="'+data.categoria_id+'"]').eq(pos);
+					if(trprod.next().hasClass('collapse')) trprod.next().after(tr);
+					else trprod.after(tr);
+				}else{
+					$('#tbl-detalle tbody').append(tr);
+					trCat = $('<tr data-cat-tot="'+data.categoria_id+'"></tr>');
+					trCat.append('<td colspan="10" class="text-right"><small>('+data.categoria+' - '+data.subcategoria+') <strong>Subtotal:</strong></small></td>');
+					trCat.append('<td class="text-right font-wight-bold"><strong></strong></td>');
+					trCat.append('<td></td>');
+					tr.after(trCat);
+				}
+
+				if(data.categoria != 'Venta'){
+					trDet = $('<tr class="bg-light-warning collapse show"></tr>');
+					tdDet = $('<td colspan="12"></td>').appendTo(trDet);
+					if($.inArray(parseInt(data.categoria_id), [11,12]) > -1){
+						form = $('#form-manejo').clone().removeAttr('id').removeClass('hide').appendTo(tdDet);
+					}else if(data.categoria == 'Médica' && data.subcategoria == 'Vacuna' && data.es_paquete == '1' && data.paquete_vacunas == '1' && (data.producto_id == <?= $_SESSION['paquete_vacunas_perro'] ?> || data.producto_id == <?= $_SESSION['paquete_vacunas_gato'] ?>)){
+						form = $('#form-vacunas').clone().removeAttr('id').removeClass('hide').appendTo(tdDet);
+						$(form).find('#nomVacuna').val(data.primera_vacuna_nombre);
+						$(form).find('#dateAplicacion').val(data.primera_vacuna_aplicacion);
+						$(form).find('#loteVacuna').val(data.primera_vacuna_lote);
+						$(form).find('#notasVacuna').val(data.primera_vacuna_observaciones);
+					}else if(data.categoria == 'Médica' && data.subcategoria != 'Cirugía' && data.subcategoria != 'Otro'){
+						form = $('#form-medica').clone().removeAttr('id').removeClass('hide').appendTo(tdDet);
+						$(form).find('.lote').toggleClass('hide',$.inArray(parseInt(data.categoria_id), [5,6]) == -1)
+						$(form).find('.lote').find('input:eq(0)').val(data.lote);
+						$(form).find('.lote').find('input:eq(1)').val(data.siguiente_aplicacion).data('recordatorio', data.recordatorio);
+					}else if($.inArray(parseInt(data.categoria_id), [14,15,16]) > -1){
+						form = $('#form-estetica').clone().removeAttr('id').removeClass('hide').appendTo(tdDet);
+						if(data.subcategoria == 'Pensión'){
+							$(form).find('.pension').removeClass('hide');
+							$(form).find('.estetica').remove();
+						}else{
+							$(form).find('.estetica').removeClass('hide');
+							$(form).find('.pension').remove();
+						}
+					}else if(data.subcategoria == 'Otro'){
+						form = $('#form-otro').clone().removeAttr('id').removeClass('hide').appendTo(tdDet);
+					}
+					if(data.id != undefined){
+						$.each(data.belleza, function (index, value) {
+							if(value != '00:00:00') $(form).find('[data-field="'+index+'"]').val(value);
+						});
+						if(!data.belleza){
+							$.each(data.dataVacuna, function(index, value){
+								if(value != '00:00:00') $(form).find('[data-field="'+index+'"]').val(value);
+							});
+						}
+					}
+					if(data.subcategoria != 'Cirugía' && data.subcategoria != 'Hospitalización'){
+						td.prepend('<button type="button" class="btn btn-xs btn-info btnMore"><i class="mdi mdi-chevron-double-down fa-lg"></i></button> ');
+						$(tr).after(trDet);
+					}
+				}
+
+				if(data.producto_id == <?= $_SESSION['paq_cirugia'] ?>) tr.data('cirugia', JSON.stringify(data.extra));
+				if(data.uso_controlado == 1) tr.data('uso', JSON.stringify(data.uso));
+				
+				$('#tbl-detalle .nodata').remove();
+			}
+
+			$('#tbl-detalle').on('click', '.btnMore', function(e) {
+				e.preventDefault();
+				$(this).parents('tr').next().collapse('toggle');
+			});
+
+			function getTrElement(trInfo) {
+				container = $('<div></div>');
+				$.each(trInfo, function(index, trInfoRow) {
+					container.append(trInfoRow);
+				});
+
+				return container;
+			}
+
+			function setTrData(row, trElement) {
+				arrContent = [];
+				$.each(trElement.children(), function(index, element) { element = $(element);
+					tagName = element.prop('tagName').toLowerCase();
+					html = '<'+tagName;
+					$.each(element[0].attributes, function(index, attr) {
+						html += ' '+attr.name+'="'+attr.value+'"';
+					});
+					html += '>'+element.html()+'</'+tagName+'>';
+
+					arrContent.push(html);
+				});
+
+				row.data(arrContent);
+				getTotalVisita();
+				getTotalPagos();
+				toastr["success"]("¡Listo!", "Se guardaron los cambios correctamente."); 
+			}
+
+			function editDetalle(id) {
+				if(parseInt($('#visita-id').val()) != 0) {
+					if(id_cliente == <?= $_SESSION['prop_farm'] ?>) data.paquete = $('#paquete-venta').val();
+					$.ajax({
+						url: $apiUrl+'det_venta/edit/'+id,
+						type: 'PUT',
+						data: data,
+						dataType: 'json',
+						success: function(resp) {
+							if(resp.response) { 
+								$('#frm-item').modal('hide'); 
+								getTotalVisita();
+								$('#tbl-detalle tbody tr.to-update').removeClass('to-update');
+								$('#tbl-items').DataTable().ajax.reload();
+								toastr["success"]("¡Listo!", "Se guardaron los datos correctamente."); 
+							}  else { toastr["error"]("Oops!", resp.message); }
+
+							$.unblockUI();
+						}
+					});
+				} else { 
+					getTotalVisita();
+					$('#frm-item').modal('hide'); 
+					$.unblockUI(); 
+					$('#tbl-detalle tbody tr.to-update').removeClass('to-update');
+
+					toastr["success"]("¡Listo!", "Se guardaron los datos correctamente."); 
+				}
+			}
+
+			$('#tbl-conceptos').on('click', '.btnAdd', function(e) {
+				e.preventDefault(); blockPage();
+				container = $('#tbl-detalle tbody');
+				tr = $(this).parents('tr');
+				id = tr.attr('data-id');
+				data = { 'colaborador_id':$idColaborador, 
+					'temp_colaborador':'<?= $_SESSION['colaborador']->nombre.' '.$_SESSION['colaborador']->apellidos ?>', 
+					'propietario_id':$('#propietario-id').val(), 
+					'producto_id':id, 'cantidad':1, 'descuento_importe':0, 
+					'descuento_porcentaje':0, 'descuento_motivo':'', 
+					'temp_descuento': '$ 0.00', 
+					'colaborador_asigno_id':$idColaborador, 
+					'fecha_asigno':moment().format('YYYY-MM-DD'), 
+					'descuento_leal': 0 };
+				if(parseInt($('#visita-id').val()) == 0) { 
+					cant = 0; 
+					$.each($('#tbl-detalle tbody tr[data-id="'+id+'"]'), function(index, tr) { 
+						cant += parseInt($(tr).find('.cantidad').text()); 
+					}); 
+					cant++; 
+				}else { cant = 1; }
+
+				if($('#tbl-conceptos tbody tr[data-id="'+id+'"][data-paquete="0"]').length > 0) { data.temp_es_paquete = 0;
+					$.get($apiUrl+'producto/get/'+id, function(producto) { producto = producto.result; data.iva = producto.iva; data.tipo_iva = producto.iva;
+						if(producto.stock==null || cant<=producto.stock) {
+							data.categoria = producto.categoria;
+							data.categoria_id = producto.categoria_id;
+							data.subcategoria = producto.subcategoria;
+							data.facturable = producto.facturable;
+							data.uso_controlado = parseInt(producto.uso_controlado);
+							data.temp_producto = producto.nombre; data.precio = '$ '+producto.precio; data.subtotal = producto.precio; data.total = '$ '+parseFloat(producto.precio).toFixed(2); data.recordatorio = 0;
+							data.servicio = 0;
+							data.precioproducto = producto.precio;
+							if($.inArray(producto.categoria_id, ['5', '6']) >= 0) { data.lote = ''; } else { data.temp_lote = 'N/A'; }
+
+							if(producto.aplicacion_intervalo!=null && producto.aplicacion_lapso!=null) {
+								switch(producto.aplicacion_lapso) { case '1': lapso = 'days'; break; case '2': lapso = 'weeks'; break; case '3': lapso = 'months'; break; case '4': lapso = 'years'; break; default: lapso = ''; };
+								data.siguiente_aplicacion = moment().add(producto.aplicacion_intervalo, lapso).format('YYYY-MM-DD');
+								data.recordatorio = 1;
+							} else { data.temp_siguiente_aplicacion = 'N/A'; }
+							
+							if($petsCount == 1) { data.temp_mascota_id = parseInt($pet.id); data.mascota_id = parseInt($pet.id); data.temp_mascota = $pet.nombre; } 
+							else if($mascota_id > 0) { data.temp_mascota_id = $mascota_id; data.mascota_id = $mascota_id; data.temp_mascota = $('#item-mascota option[value="'+$mascota_id+'"]').text(); } 
+							else if($('#propietario-id').val() == '<?= $_SESSION['cliente_general'] ?>' || data.categoria == 'Venta') { data.temp_mascota_id = 0; data.temp_mascota = 'N/A'; }
+
+							if(producto.stock != null) {
+								if($.inArray(parseInt(producto.tipo), [4,5,6,7]) > -1){
+									if(arrMascotas.length > 0) {
+										data.temp_mascota_id = parseInt(arrMascotas[0]); data.temp_mascota = $('#item-mascota option[value="'+arrMascotas[0]+'"]').text();
+										data.mascota_id = parseInt(arrMascotas[0]); data.mascota = $('#item-mascota option[value="'+arrMascotas[0]+'"]').text();
+									} else {
+										data.temp_mascota_id = parseInt($pet.id); data.temp_mascota = $pet.nombre;
+										data.mascota_id = parseInt($pet.id); data.mascota = $pet.nombre;
+									}
+								}
+								if(data.uso_controlado == 1){
+									usoControlado(data, producto, false);
+								}else{
+									postControlado(data, producto);
+								}
+							} else { addDetalleNext(data); }
+						} else { 
+							toastr["error"]("Stock insuficiente!", "No hay stock suficiente del producto actual"); 
+							$.unblockUI();
+						}
+					}, 'json');
+				} else { 
+					data.temp_es_paquete = 1;
+					data.temp_mascota_id = 0; 
+					data.temp_mascota = 'N/A'; 
+					data.mascota_id = 0; 
+					data.mascota = 'N/A';
+					if($petsCount == 1) { 
+						data.temp_mascota_id = parseInt($pet.id); 
+						data.temp_mascota = $pet.nombre; 
+						data.mascota_id = parseInt($pet.id); 
+						data.mascota = $pet.nombre; 
+					}else if($mascota_id > 0) { 
+						data.temp_mascota_id = $mascota_id; 
+						data.temp_mascota = $('#item-mascota option[value="'+$mascota_id+'"]').text(); 
+						data.mascota_id = $mascota_id; 
+						data.mascota = $('#item-mascota option[value="'+$mascota_id+'"]').text(); 
+					}else if($('#propietario-id').val() == '<?= $_SESSION['cliente_general'] ?>' || data.categoria == 'Venta') { 
+						data.temp_mascota_id = 0; 
+						data.temp_mascota = 'N/A'; 
+					}
+					if($petsCount != 1 && data['mascota_id'] == 0){
+						toastr["error"]("Mascota requerida!", 'Agregue el producto con el botón "Agregar Detalle" (botón morado) y seleccione una mascota para continuar.'); 
+						$.unblockUI();
+					}else{
+						$('#tbl-cirugia tbody').empty();
+						$.get($apiUrl+'paquete/get/'+id, function(paquete) { 
+							detalles = paquete.detalles; 
+							paquete = paquete.result;
+							data.categoria = paquete.categoria;
+							data.categoria_id = paquete.categoria_id;
+							data.subcategoria = paquete.subcategoria;
+							data.paquete_vacunas = paquete.paquete_vacunas;
+							data.primera_vacuna_nombre = detalles[0].nombre; data.primera_vacuna_aplicacion = "<?php echo date("d/m/Y"); ?>"
+							data.temp_producto = paquete.nombre; data.precio = '$ '+paquete.precio; data.subtotal = paquete.precio; data.total = '$ '+parseFloat(paquete.precio).toFixed(2); data.temp_recordatorio = 0; data.temp_lote = 'N/A'; data.temp_siguiente_aplicacion = 'N/A';
+							data.iva = paquete.iva; data.tipo_iva = paquete.iva;
+							if(paquete.stock==null || paquete.stock>=cant || paquete.id == <?= $_SESSION['paq_cirugia'] ?>) {
+									contador = 0;
+									if(detalles.length > 0) {
+										$.each(detalles, function(index, detalle) {
+											if(paquete.id == <?= $_SESSION['paq_cirugia'] ?>){
+												paqCant = '<input type="number" value="0" class="form-control form-control-sm text-center cirugia-cant" data-prod="'+detalle.producto_id+'" max="'+detalle.stock+'" '+(detalle.stock==0?'disabled':'')+'>';
+												paqDet = '<tr><td>'+detalle.nombre+'</td><td>'+paqCant+'</td></tr>';
+												$('#tbl-cirugia tbody').append(paqDet);
+											}else{
+												cantidad = 0; $.each($('#tbl-detalle tbody tr[data-id="'+detalle.producto_id+'"]'), function(index, tr) { cantidad += parseInt($(tr).find('td:eq(2)').text()); });
+												if(detalle.stock==null || ((cant * detalle.cantidad) + cantidad) <= detalle.stock) { contador++;
+													if(contador == detalles.length) {
+														addDetalleNext(data);
+													}
+												} else { toastr["error"]("Stock insuficiente!", "No hay stock suficiente del producto actual"); }
+												$.unblockUI();
+											}
+										});
+										if(paquete.id == <?= $_SESSION['paq_cirugia'] ?>){ showCirugia(data, false); $.unblockUI(); }
+									} else { addDetalleNext(data); $.unblockUI(); }
+							} else { toastr["error"]("Stock insuficiente!", "No hay stock suficiente del producto actual"); $.unblockUI(); }
+						}, 'json');
+					}
+				}
+			});
+
+			function usoControlado(data, producto, modal){
+				if(id_cliente == '<?= $_SESSION['cliente_general'] ?>'){
+					toastr["error"]("Medicamento controlado", "No se puede vender medicamento de uso controlado a público en general");
+					$.unblockUI();
+					return false;
+				}
+				$('#frm-controlado strong').html(data.temp_producto);
+				$('#tbl-controlado tbody').empty();
+				$('#frm-item').modal('hide');
+				blockPage();
+				$('#uso-dias, #uso-surtidos').val('');
+				$.get($apiUrl+"farmacia/controlado/getBy/propMed/"+id_cliente+'/'+data.producto_id,
+					function (resp) {
+						if(resp.length > 0){
+							$.each(resp, function (index, item) { 
+								tr = $('<tr></tr>');
+								tr.append('<td>'+item.entrega+'</td>');
+								tr.append('<td class="text-center">'+item.cantidad+'</td>');
+								tr.append('<td><a href="<?= URL_ROOT ?>/mascota/'+$.md5(item.mascota_id)+'"><i class="mdi mdi-paw fa-lg"></i> '+item.nombre+'</a></td>');
+								if(item.origen_tipo == 1){
+									tr.append('<td><a href="<?= URL_ROOT ?>/receta/'+$.md5(item.origen_id)+'" target="_blank" class="pull-right"><i class="mdi mdi-prescription fa-lg"></i> '+item.origen+'</a></td>');
+								}else{
+									tr.append('<td><a href="<?= URL_ROOT ?>/comprobante/'+$.md5(item.origen_id)+'" target="_blank" class="pull-right"><i class="mdi mdi-cart fa-lg"></i> '+item.origen+'</a></td>');
+								}
+								tr.append('<td>'+item.siguiente+'</td>');
+								tr.append('<td class="text-center">'+(item.completo==1?'<strong>SI</strong>':'NO')+'</td>');
+								tr.append('<td class="text-center">'+item.restan+' de '+item.dias+'</td>');
+								$('#tbl-controlado tbody').append(tr);
+							});
+							$('#frm-controlado').modal('show');
+						}else{
+							$('#tbl-controlado tbody').append('<tr><td colspan="7"><small>No se encotraron registros</small></td></tr>');
+							$('#frm-controlado').modal('show');
+						}
+						$.unblockUI();
+					},
+					"json"
+				);
+
+				$('#btnAddControlado').off('click').on('click', function(){
+					$('#frm-controlado .is-invalid').removeClass('is-invalid');
+					dias = $.trim($('#uso-dias').val());
+					surtidos = $.trim($('#uso-surtidos').val());
+					
+					if(dias == ''){
+						$('#uso-dias').addClass('is-invalid').focus();
+					}else if(surtidos == ''){
+						$('#uso-surtidos').addClass('is-invalid').focus();
+					}else{
+						data.uso = {dias:dias, surtidos: surtidos};
+						if(parseInt($('#visita-id').val()) == 0){ 
+							postControlado(data, producto); 
+						}else{ 
+							if($('#btnSaveProducto').hasClass('add')) { addDetalle(data); $('#frm-item').modal('hide'); $.unblockUI(); } 
+							else if($('#btnSaveProducto').hasClass('update')) {
+								trInfo = $('#tbl-detalle tbody tr[data-id="'+data.producto_id+'"].to-update');
+								trInfo.find('.fecha').html(moment(data.fecha_asigno, 'YYYY-MM-DD').format('DD/MM/YYYY'));
+								trInfo.find('.colaborador').html(data.temp_colaborador).data('id', data.colaborador_id); 
+								trInfo.find('.cantidad').html(data.cantidad); 
+								if(data.mascota_id != undefined) { trInfo.find('.mascota').html(data.temp_mascota).data('id', data.mascota_id); } 
+								if(data.temp_mascota_id != undefined) { trInfo.find('.mascota').html(data.temp_mascota).data('id', data.temp_mascota_id); } 
+								trInfo.find('.lote').html(data.lote!=undefined? data.lote: data.temp_lote); 
+								trInfo.find('.siguiente_aplicacion').html(data.siguiente_aplicacion).attr('data-recordatorio', data.recordatorio); 
+								trInfo.find('.precio').html(data.precio); 
+								trInfo.find('.descuento').html(data.descuento_porcentaje==0? '$ '+parseFloat(data.descuento_importe).toFixed(2): data.descuento_porcentaje+' %'); 
+								trInfo.find('.descuento_motivo').html(data.descuento_motivo); 
+								trInfo.find('.descuento_leal').html('$ '+parseFloat(data.descuento_leal).toFixed(2)); 
+								trInfo.find('.total').html(data.total);
+								trInfo.find('.totalwiva').html(data.total);
+								editDetalle(trInfo.data('detalle'));
+							}else{
+								addDetalle(data); $.unblockUI();
+							}
+						}
+						$('#frm-controlado strong, #tbl-controlado tbody').empty(); 
+						$('#frm-controlado').modal('hide'); 
+					}
+				});
+			}
+
+			function postControlado(data, producto){
+				if(parseInt($('#visita-id').val()) == 0) { contador = 0; cantidad = 0; paquetesAgregados = $('#tbl-detalle tbody tr[data-paquete="1"]');
+					if(paquetesAgregados.length > 0) {
+						$.each(paquetesAgregados, function(index, tr) {
+							$.get($apiUrl+'det_paquete/getByPaquete/'+$(tr).attr('data-id')+'/'+producto.id, function(prodPaquete) { contador++; 
+								if(prodPaquete.result.length > 0) { prodPaquete = prodPaquete.result[0];
+									cantidad += parseInt($(tr).find('.cantidad').text()) * prodPaquete.cantidad;
+									if(contador == paquetesAgregados.length) {
+										if(cantidad+cant <= producto.stock) { addDetalleNext(data); } 
+										else { toastr["error"]("Stock insuficiente", "No hay stock suficiente del producto actual"); }
+										$.unblockUI();
+									}
+								} else {
+									if(contador == paquetesAgregados.length) {
+										if(cant <= producto.stock) { addDetalleNext(data); } 
+										else { toastr["error"]("Stock insuficiente", "No hay stock suficiente del producto actual"); }
+										$.unblockUI();
+									}
+								}
+							}, 'json');
+						});
+					} else { addDetalleNext(data); }
+					$.unblockUI();
+				} else { addDetalleNext(data); }
+			}
+
+			function showCirugia(data, producto, modal){
+				$('#frm-cirugia').modal('show');
+				$('#frm-item').modal('hide');
+				
+				$('#btnAddCirugia').off('click').on('click', function(){
+					$('#frm-cirugia .alert').remove();
+					$('#frm-cirugia .is-invalid').removeClass('is-invalid');
+					prods = []; errorStock = false;
+					$.each($('#tbl-cirugia input'), function (index, elem) { 
+						cant = parseInt($(elem).val());
+						max = parseInt($(elem).attr('max'));
+						if(cant > 0) prods.push({producto_id: $(elem).data('prod'), cantidad: cant})
+						if(cant > max){ $(elem).addClass('is-invalid'); errorStock = true; }
+					});
+
+					if(prods.length == 0){
+						$('#frm-cirugia .modal-body').append('<div class="alert alert-danger"><small>Debe seleccionar al menos 1 producto.</small></div>');
+					}else if(errorStock){
+						$('#frm-cirugia .modal-body').append('<div class="alert alert-danger"><small>Los productos marcados no cuentan con suficiente stock.</small></div>');
+					}else{
+						data.extra = prods;
+						//postCirugia(data, producto, prods); 
+						addDetalleNext(data);
+						$('#tbl-cirugia tbody').empty(); 
+						$('#frm-cirugia').modal('hide'); 
+					}
+				});
+			}
+
+			function addDetalleNext(data) {
+				addDetalle(data); $.unblockUI();
+			}
+
+			$.get($apiUrl+'mascota/getByPropLight/'+$('#propietario-id').val(), function(mascotas) {
+				$('#item-mascota').empty();
+				if(mascotas.length > 0) {
+					$.each(mascotas, function(index, mascota) {
+						$('#item-mascota').append('<option value="'+mascota.id+'">'+mascota.nombre+'</option>')
+					});
+				}
+			}, 'json');
+
+			function openModalDetalle(producto) {
+				$('.box-hidden').addClass('hide');
+				$('#item-id').val(producto.id);
+
+				$('#item-concepto').html(producto.nombre); $('.box-concepto').removeClass('hide');
+				if(producto.stock != null) { $('#item-existencia').html(producto.stock); $('.box-existencia').removeClass('hide'); }
+				$('#item-precio').val(producto.precio);
+				$('#item-fecha').val(producto.fecha);
+				if($('#propietario-id').val() != '<?= $_SESSION['cliente_general'] ?>') {
+					$('#item-mascota').parents('.row').removeClass('hide');
+					if(parseInt(producto.mascota_id) > 0) { $('#item-mascota').val(producto.mascota_id); }
+				} else { $('#item-mascota').parents('.row').addClass('hide'); }
+				if(producto.id == <?= $_SESSION['paquete_vacunas_perro'] ?> || producto.id == <?= $_SESSION['paquete_vacunas_gato'] ?>){
+					$('#item-cantidad').val(producto.cantidad).prop('readonly', true); 
+				}else{
+					$('#item-cantidad').val(producto.cantidad).prop('readonly', false); 
+				}
+				if(producto.subcategoria != 'Estética') $('#item-cantidad').parents('.box-hidden').removeClass('hide');
+				$('#item-descuento_monto').val(producto.descuento_importe).trigger('change');
+				$('#item-descuento_porcentaje').val(producto.descuento_porcentaje).trigger('change');
+				$('#item-descuento_motivo').val(producto.descuento_motivo).trigger('change');
+				$('#item-descuento_leal').val(producto.descuento_leal).trigger('change');
+				$('#item-puntos_leal').val(producto.puntos_leal);
+				$('#item-categoria').html(producto.categoria); $('.box-categoria').removeClass('hide');
+				$('#item-subcategoria').html(producto.subcategoria); $('.box-subcategoria').removeClass('hide');
+				if(producto.es_paquete == '0') {
+					if(producto.tipo != null) { $('#item-tipo').html(producto.nombreTipo); $('.box-tipo').removeClass('hide'); }
+				}
+
+				if($.inArray(producto.categoria_id, ['5', '6']) >= 0) { 
+					$('.box-lote').removeClass('hide'); 
+					$('#item-lote').val(producto.lote); 
+				}
+
+				if(producto.aplicacion_intervalo!=null && producto.aplicacion_lapso!=null) { 
+					$('.box-recordatorio').removeClass('hide'); 
+					$('#item-recordatorio').prop('checked', parseInt(producto.recordatorio)==1);
+				}
+				
+				if(id_cliente == <?= $_SESSION['prop_farm'] ?>) {
+					if('<?= implode(',', $_SESSION['paq_vacunas_productos']) ?>'.split(',').includes(producto.id)) {
+						$('.box-lote').removeClass('hide'); 
+						$('#item-lote').val(producto.lote); 
+						$('.box-siguiente_aplicacion').removeClass('hide'); 
+						$('#item-siguiente_app').val(undefined).trigger('change');
+					}
+				}
+
+				$('#div-descuento').toggleClass('show',(producto.descuento_motivo!=''||producto.descuento_leal>0));
+
+				$('#item-precio').attr('readonly', 'readonly');
+				<?php if(in_array(MOD_PROD_PRECIO_CIR, $permisos)) : ?>
+					if(producto.id == <?= $_SESSION['paq_cirugia'] ?> || producto.id == <?= $_SESSION['prod_cirugia'] ?> || producto.id == 1075 || producto.id == 232 || producto.id == 1856){
+						$('#item-precio').removeAttr('readonly');
+					}
+				<?php endif; ?>
+				if(producto.id == 1855 || producto.id == 2019 || producto.id == 1196){
+					$('#item-precio').removeAttr('readonly');
+				}
+				<?php if(in_array(MOD_PRECIO_IVA, $permisos)) : ?>
+				if(producto.id == <?= $_SESSION['producto_iva'] ?>){
+					$('#item-precio').removeAttr('readonly');
+				}
+				<?php endif; ?>
+
+				$.get($apiUrl+'colaborador/getAll/', function(colaboradores) {
+					$('#item-colaborador').empty();
+					if(colaboradores.result.length > 0) {
+						$.each(colaboradores.result, function(index, colaborador) {
+							$('#item-colaborador').append('<option value="'+colaborador.id+'"'+(colaborador.id==producto.colaborador_id? ' selected="selected"': '')+'>'+colaborador.nombre+' '+colaborador.apellidos+'</option>')
+						});
+						$('#item-colaborador').selectpicker('refresh').selectpicker('render');
+                        $('#frm-item .dropdown-toggle').addClass('b-all');
+					}
+					$('#frm-item').modal('show');
+				}, 'json');
+			}
+
+			$(document).on('change', '#item-siguiente_app', function() {
+				if($(this).val() != '') {
+					$('.box-recordatorio').removeClass('hide'); 
+				} else {
+					$('.box-recordatorio').addClass('hide'); 
+				}
+
+				$('#item-recordatorio').prop('checked', false);
+			});
+
+			$('#tbl-conceptos').on('click', '.btnAddDetalle', function(e) {
+				e.preventDefault();
+				$('#btnSaveProducto').prop('disabled',false);
+				blockPage();
+
+				tr = $(this).parents('tr'); id = tr.attr('data-id');
+				fecha = moment().format('DD/MM/YYYY');
+				$('#btnSaveProducto').addClass('add').removeClass('update').html('Agregar');
+				$('#frm-item h4').html('Agregar Concepto');
+				if(tr.attr('data-paquete') == '0') {
+					$.get($apiUrl+'producto/get/'+id, function(producto) { producto = producto.result;
+						producto.descuento_leal = 0;
+						producto.puntos_leal = 0;
+						if(producto.uso_controlado == 1 && id_cliente == '<?= $_SESSION['cliente_general'] ?>'){
+							toastr["error"]("Medicamento controlado", "No se puede vender medicamento de uso controlado a público en general");
+							$.unblockUI();
+							return false;
+						}
+						producto.fecha=fecha; producto.cantidad=1; producto.colaborador_id=$idColaborador; producto.lote=''; producto.recordatorio=1; producto.descuento_importe=0; producto.descuento_porcentaje=0; producto.descuento_motivo='';
+						producto.mascota_id = arrMascotas.length > 0? arrMascotas[0]: 0;
+						openModalDetalle(producto);
+						$.unblockUI();
+					}, 'json');
+				} else {
+					$.get($apiUrl+'paquete/get/'+id, function(paquete) { paquete = paquete.result; paquete.es_paquete = '1';
+						paquete.descuento_leal = 0;
+						paquete.puntos_leal = 0;
+						paquete.fecha=fecha; paquete.cantidad=1; paquete.colaborador_id=$idColaborador; paquete.descuento_importe=0; paquete.descuento_porcentaje=0; paquete.descuento_motivo='';
+						paquete.mascota_id = arrMascotas.length > 0? arrMascotas[0]: 0;
+						openModalDetalle(paquete);
+						$.unblockUI();
+					}, 'json');
+				}
+			});
+
+			$('#btnSaveProducto').click(function(e) {
+				e.preventDefault();
+				if(!$('#btnSaveProducto').hasClass('invalid')) { 
+					blockPage();
+					precio=parseFloat($('#item-precio').val()); 
+					cantidad=$('#item-cantidad').val()!=''? parseFloat($('#item-cantidad').val()): 1; 
+					desc_importe=$('#item-descuento_monto').val()!=''? parseFloat($('#item-descuento_monto').val()): 0; 
+					desc_porcentaje=$('#item-descuento_porcentaje').val()!=''? parseInt($('#item-descuento_porcentaje').val()): 0; 
+					total=desc_importe>0? parseFloat((precio*cantidad)-desc_importe): parseFloat(precio*cantidad*(1-(desc_porcentaje/100)));
+					descLeal = parseFloat($('#item-descuento_leal').val());
+					if(descLeal>0) total -= descLeal;
+					
+					if(total < 0) {
+						$errLabel = $('<div class="invalid-tooltip">El descuento no puede ser mayor al precio</div>');
+						$('#item-descuento_monto').val('0.00').focus().after($errLabel);
+						$('#btnSaveProducto').addClass('invalid');
+						$errLabel.show();
+
+						setTimeout(() => {
+							$('.invalid-tooltip').remove();
+						}, 3000);
+						$.unblockUI();
+						return;
+					}
+
+					data = { 'colaborador_id':$('#item-colaborador').val(), 
+						'temp_colaborador':$('#item-colaborador option:selected').text(), 
+						'propietario_id':$('#propietario-id').val(), 
+						'producto_id':$('#item-id').val(), 
+						'precio':'$ '+precio.toFixed(2), 
+						'cantidad':cantidad, 
+						'subtotal':precio * cantidad, 
+						'descuento_importe':desc_importe, 
+						'descuento_porcentaje':desc_porcentaje, 
+						'descuento_motivo':$('#item-descuento_motivo').val(), 
+						'temp_descuento':desc_porcentaje>0? desc_porcentaje+' %':'$ '+desc_importe.toFixed(2), 
+						'total':'$ '+total.toFixed(2), 
+						'colaborador_asigno_id':$idColaborador, 
+						'fecha_asigno':moment($('#item-fecha').val(), 'DD/MM/YYYY').format('YYYY-MM-DD'), 
+						'descuento_leal':$('#item-descuento_leal').val() ,
+						'puntos_leal':$('#item-puntos_leal').val() 
+					};
+					cant = 0; 
+					<?php if(!isset($visita)): ?>
+					$.each($('#tbl-detalle tbody tr[data-id="'+$('#item-id').val()+'"]'), function(index, tr) {
+						cant += parseFloat($(tr).find('.cantidad').text());
+					}); 
+					<?php endif; ?>
+					cant += cantidad;
+					if($('#btnSaveProducto').hasClass('add')) { /* cant += cantidad; */ } else { 
+						cant -= parseFloat($('#tbl-detalle tbody tr.to-update').find('.cantidad').text()); 
+					}
+					nvoCant = cantidad - cant;
+
+					if($('#item-mascota').is(':visible')) {
+						data.temp_mascota_id = $('#item-mascota').val(); data.temp_mascota = $('#item-mascota option:selected').text();
+						data.mascota_id = $('#item-mascota').val(); data.mascota = $('#item-mascota option:selected').text();
+					} else if($('#propietario-id').val() != '<?= $_SESSION['cliente_general'] ?>') {
+						if($('#item-mascota option').length == 1){ data.temp_mascota_id = $('#item-mascota option:eq(0)').attr('value'); data.temp_mascota = $('#item-mascota option:eq(0)').text(); }
+						else { data.temp_mascota_id = 0; data.temp_mascota = 'N/A'; }
+					} else { data.temp_mascota_id = 0; data.temp_mascota = 'N/A'; }
+
+					$.get($apiUrl+'producto/get/'+$('#item-id').val(), function(producto) { 
+						producto = producto.result; 
+						data.temp_es_paquete = 0; 
+						data.iva = producto.iva; 
+						data.tipo_iva = producto.iva;
+						if(producto.es_paquete == 0) {
+							if(producto.stock==null || cant<=producto.stock) {
+								data.categoria = producto.categoria;
+								data.categoria_id = producto.categoria_id;
+								data.subcategoria = producto.subcategoria;
+								data.facturable = producto.facturable;
+								data.uso_controlado = parseInt(producto.uso_controlado);
+								data.recordatorio = $('#item-recordatorio').prop('checked')? 1: 0;
+								data.temp_producto = producto.nombre;
+								if($('#item-lote').is(':visible')) { data.lote = $('#item-lote').val(); } else { data.temp_lote = 'N/A'; }
+								if($('#item-siguiente_app').is(':visible')) { data.siguiente_aplicacion = $('#item-siguiente_app').val(); } else { data.temp_siguiente_aplicacion = 'N/A'; }
+								if(producto.aplicacion_intervalo!=null && producto.aplicacion_lapso!=null) {
+									switch(producto.aplicacion_lapso) { case '1': lapso = 'days'; break; case '2': lapso = 'weeks'; break; case '3': lapso = 'months'; break; case '4': lapso = 'years'; break; default: lapso = ''; };
+									data.siguiente_aplicacion = moment(data.fecha_asigno, 'YYYY-MM-DD').add(producto.aplicacion_intervalo, lapso).format('YYYY-MM-DD');
+									data.recordatorio = 1;
+								} else if(producto.siguiente_aplicacion != undefined) { data.temp_siguiente_aplicacion = 'N/A'; }
+
+								if(producto.stock != null) { 
+									if(data.uso_controlado == 1){
+										usoControlado(data, producto, true);
+									}else{
+										postControladoModal(data, producto);
+									}
+								} else {
+									if($('#btnSaveProducto').hasClass('add')) { addDetalle(data); $('#frm-item').modal('hide'); $.unblockUI(); } 
+									else if($('#btnSaveProducto').hasClass('update')) {
+										trInfo = $('#tbl-detalle tbody tr[data-id="'+$('#item-id').val()+'"].to-update');
+										trInfo.find('.fecha').html(moment(data.fecha_asigno, 'YYYY-MM-DD').format('DD/MM/YYYY')); 
+										trInfo.find('.colaborador').html(data.temp_colaborador).data('id', data.colaborador_id); 
+										trInfo.find('.cantidad').html(data.cantidad); 
+										if(data.temp_mascota_id != undefined) { 
+											trInfo.find('.mascota').html(data.temp_mascota).data('id', data.mascota_id); 
+										} 
+										trInfo.find('.lote').html(data.lote!=undefined? data.lote: data.temp_lote); 
+										trInfo.find('.siguiente_aplicacion').html(data.siguiente_aplicacion).attr('data-recordatorio', data.recordatorio); 
+										trInfo.find('.precio').html(data.precio); 
+										trInfo.find('.descuento').html(data.descuento_porcentaje==0? '$ '+parseFloat(data.descuento_importe).toFixed(2): data.descuento_porcentaje+' %'); 
+										trInfo.find('.descuento_motivo').html(data.descuento_motivo); 
+										trInfo.find('.descuento_leal').html('$ '+parseFloat(data.descuento_leal).toFixed(2)); 
+										trInfo.find('.descuento_leal').data('puntos', data.puntos_leal);
+										trInfo.find('.total').html(data.total);
+										trInfo.find('.totalwiva').html(data.total);
+										editDetalle(trInfo.data('detalle'));
+									}
+								}								
+							} else { toastr["error"]("Stock insuficiente", "No hay stock suficiente del producto actual"); $.unblockUI(); }
+						} else { data.temp_es_paquete = 1;
+							$('#tbl-cirugia tbody').empty();
+							$.get($apiUrl+'paquete/get/'+$('#item-id').val(), function(paquete) { 
+								detalles = paquete.detalles; 
+								paquete = paquete.result; paquete.es_paquete = '1';
+								data.categoria = paquete.categoria;
+								data.categoria_id = paquete.categoria_id;
+								data.subcategoria = paquete.subcategoria;
+								data.paquete_vacunas = paquete.paquete_vacunas;
+								data.primera_vacuna_nombre = detalles[0].nombre;
+								data.primera_vacuna_aplicacion = "<?php echo date("d/m/Y"); ?>"
+								<?php if(isset($visita)): ?>
+								if(paquete.stock==null || (paquete.stock>=cant) || paquete.id == <?= $_SESSION['paq_cirugia'] ?>) { 
+								<?php else: ?>
+								if(paquete.stock==null || paquete.stock>=cant || paquete.id == <?= $_SESSION['paq_cirugia'] ?>) { 
+								<?php endif; ?>
+									contador = 0;
+									if(detalles.length > 0) {
+										$.each(detalles, function(index, detalle) {
+											producto = detalle.producto;
+											if(paquete.id == <?= $_SESSION['paq_cirugia'] ?>){
+												paqCant = '<input type="number" value="0" class="form-control form-control-sm text-center cirugia-cant" data-prod="'+detalle.producto_id+'" max="'+detalle.stock+'" '+(detalle.stock==0?'disabled':'')+'>';
+												paqDet = '<tr><td>'+detalle.nombre+'</td><td>'+paqCant+'</td></tr>';
+												$('#tbl-cirugia tbody').append(paqDet);
+											}else{
+												cantidad = 0; 
+												$.each($('#tbl-detalle tbody tr[data-id="'+detalle.producto_id+'"]'), function(index, tr) { 
+													cantidad += parseInt($(tr).find('.cantidad').text()); 
+												});
+												<?php if(isset($visita)): ?>
+												if(producto.stock==null || (nvoCant*detalle.cantidad<=producto.stock)) { contador++;
+												<?php else: ?>
+												if(producto.stock==null || ((cant * detalle.cantidad) + cantidad) <= producto.stock) { contador++;
+												<?php endif; ?>
+													if(contador == detalles.length) {
+														data.temp_producto = paquete.nombre; data.temp_recordatorio = 0; data.temp_siguiente_aplicacion = 'N/A';
+														if($('#btnSaveProducto').hasClass('add')) { addDetalle(data); $('#frm-item').modal('hide'); $.unblockUI(); } 
+														else if($('#btnSaveProducto').hasClass('update')) {
+															trInfo = $('#tbl-detalle tbody tr[data-id="'+$('#item-id').val()+'"].to-update');
+															trInfo.find('.fecha').html(moment(data.fecha_asigno, 'YYYY-MM-DD').format('DD/MM/YYYY')); 
+															trInfo.find('.colaborador').html(data.temp_colaborador).data('id', data.colaborador_id); 
+															trInfo.find('.cantidad').html(data.cantidad); 
+															if(data.temp_mascota_id != undefined) {
+																trInfo.find('.mascota').html(data.temp_mascota).data('id', data.mascota_id); 
+															} 
+															trInfo.find('.lote').html('N/A'); 
+															trInfo.find('.siguiente_aplicacion').html('N/A').attr('data-recordatorio', 0); 
+															trInfo.find('.precio').html(data.precio); 
+															trInfo.find('.descuento').html(data.descuento_porcentaje==0? '$ '+parseFloat(data.descuento_importe).toFixed(2): data.descuento_porcentaje+' %'); 
+															trInfo.find('.descuento_motivo').html(data.descuento_motivo); 
+															trInfo.find('.descuento_leal').html('$ '+parseFloat(data.descuento_leal).toFixed(2)); 
+															trInfo.find('.descuento_leal').data('puntos', data.puntos_leal);
+															trInfo.find('.total').html(data.total);
+															trInfo.find('.totalwiva').html(data.total);
+															editDetalle(trInfo.data('detalle'));
+														}
+													}
+												} else { toastr["error"]("Stock insuficiente", "No hay stock suficiente del producto actual"); }
+												$.unblockUI();
+											}
+										});
+										if(paquete.id == <?= $_SESSION['paq_cirugia'] ?>){ showCirugia(data, true); $.unblockUI(); }
+									} else { $.unblockUI(); }
+								} else { swal({ type: "error", title: "Stock insuficiente", text: "No hay stock suficiente del producto actual", timer: 4000 }, function(respuesta) { $.unblockUI(); }); }
+							}, 'json');
+						}
+					}, 'json');
+				} else { $('#btnSaveProducto').removeClass('invalid'); }
+			});
+
+			function postControladoModal(data, producto){
+				contador = 0; cantidad = 0; paquetesAgregados = $('#tbl-detalle tbody tr[data-paquete="1"]'); 
+				if(paquetesAgregados.length > 0) {
+					$.each(paquetesAgregados, function(index, tr) {
+						$.get($apiUrl+'det_paquete/getByPaquete/'+$(tr).attr('data-id')+'/'+producto.id, function(prodPaquete) { contador++; 
+							if(prodPaquete.result.length > 0) { prodPaquete = prodPaquete.result[0];
+								cantidad += parseInt($(tr).find('.cantidad').text()) * prodPaquete.cantidad;
+								if(contador == paquetesAgregados.length) {
+									if(cantidad+cant <= producto.stock) { 
+										if($('#btnSaveProducto').hasClass('add')) { addDetalle(data); $('#frm-item').modal('hide'); $.unblockUI(); } 
+										else if($('#btnSaveProducto').hasClass('update')) {
+											trInfo = $('#tbl-detalle tbody tr[data-id="'+$('#item-id').val()+'"].to-update');
+											trInfo.find('.fecha').html(moment(data.fecha_asigno, 'YYYY-MM-DD').format('DD/MM/YYYY')); 
+											trInfo.find('.colaborador').html(data.temp_colaborador).data('id', data.colaborador_id); 
+											trInfo.find('.cantidad').html(data.cantidad); 
+											if(data.mascota_id != undefined) { trInfo.find('.mascota').html(data.temp_mascota).data('id', data.mascota_id); }
+											if(data.temp_mascota_id != undefined) { trInfo.find('.mascota').html(data.temp_mascota).data('id', data.temp_mascota_id); }
+											trInfo.find('.lote').html(data.lote!=undefined? data.lote: data.temp_lote); 
+											trInfo.find('.siguiente_aplicacion').html(data.siguiente_aplicacion).attr('data-recordatorio', data.recordatorio); 
+											trInfo.find('.precio').html(data.precio); 
+											trInfo.find('.descuento').html(data.descuento_porcentaje==0? '$ '+parseFloat(data.descuento_importe).toFixed(2): data.descuento_porcentaje+' %'); 
+											trInfo.find('.descuento_motivo').html(data.descuento_motivo); 
+											trInfo.find('.descuento_leal').html('$ '+parseFloat(data.descuento_leal).toFixed(2)); 
+											trInfo.find('.descuento_leal').data('puntos', data.puntos_leal);
+											trInfo.find('.total').html(data.total);
+											trInfo.find('.totalwiva').html(data.total);
+											editDetalle(trInfo.data('detalle'));
+										}
+									} else { toastr["error"]("Stock insuficiente", "No hay stock suficiente del producto actual"); }
+									$.unblockUI();
+								}
+							} else {
+								<?php if(isset($visita)): ?>
+								if(cant <= producto.stock) {
+								<?php else: ?>
+								if(cant <= producto.stock) {
+								<?php endif; ?>
+									if($('#btnSaveProducto').hasClass('add')) { addDetalle(data); $('#frm-item').modal('hide'); $.unblockUI(); } 
+									else if($('#btnSaveProducto').hasClass('update')) {
+										trInfo = $('#tbl-detalle tbody tr[data-id="'+$('#item-id').val()+'"].to-update');
+										trInfo.find('.fecha').html(moment(data.fecha_asigno, 'YYYY-MM-DD').format('DD/MM/YYYY')); 
+										trInfo.find('.colaborador').html(data.temp_colaborador).data('id', data.colaborador_id); 
+										trInfo.find('.cantidad').html(data.cantidad); 
+										if(data.mascota_id != undefined) { trInfo.find('.mascota').html(data.temp_mascota).data('id', data.mascota_id); } 
+										if(data.temp_mascota_id != undefined) { trInfo.find('.mascota').html(data.temp_mascota).data('id', data.temp_mascota_id); } 
+										trInfo.find('.lote').html(data.lote!=undefined? data.lote: data.temp_lote); 
+										trInfo.find('.siguiente_aplicacion').html(data.siguiente_aplicacion).attr('data-recordatorio', data.recordatorio); 
+										trInfo.find('.precio').html(data.precio); 
+										trInfo.find('.descuento').html(data.descuento_porcentaje==0? '$ '+parseFloat(data.descuento_importe).toFixed(2): data.descuento_porcentaje+' %'); 
+										trInfo.find('.descuento_motivo').html(data.descuento_motivo); 
+										trInfo.find('.descuento_leal').html('$ '+parseFloat(data.descuento_leal).toFixed(2)); 
+										trInfo.find('.descuento_leal').data('puntos', data.puntos_leal);
+										trInfo.find('.total').html(data.total);
+										trInfo.find('.totalwiva').html(data.total);
+										editDetalle(trInfo.data('detalle'));
+									}
+								} else { toastr["error"]("Stock insuficiente", "No hay stock suficiente del producto actual"); }
+								$.unblockUI();
+							}
+						}, 'json');
+					});
+					$.unblockUI();
+				} else {
+					<?php if(isset($visita)): ?>
+					if(cant <= producto.stock) {
+					<?php else: ?>
+					if(cant <= producto.stock) {
+					<?php endif; ?>
+						if($('#btnSaveProducto').hasClass('add')) { addDetalle(data); $('#frm-item').modal('hide'); $.unblockUI(); } 
+						else if($('#btnSaveProducto').hasClass('update')) {
+							trInfo = $('#tbl-detalle tbody tr[data-id="'+$('#item-id').val()+'"].to-update'); 
+							trInfo.find('.fecha').html(moment(data.fecha_asigno, 'YYYY-MM-DD').format('DD/MM/YYYY'));
+							trInfo.find('.colaborador').html(data.temp_colaborador).data('id', data.colaborador_id); 
+							trInfo.find('.cantidad').html(data.cantidad); 
+							if(data.mascota_id != undefined) { trInfo.find('.mascota').html(data.temp_mascota).data('id', data.mascota_id); } 
+							if(data.temp_mascota_id != undefined) { trInfo.find('.mascota').html(data.temp_mascota).data('id', data.temp_mascota_id); } 
+							trInfo.find('.lote').html(data.lote!=undefined? data.lote: data.temp_lote); 
+							trInfo.find('.siguiente_aplicacion').html(data.siguiente_aplicacion).attr('data-recordatorio', data.recordatorio); 
+							trInfo.find('.precio').html(data.precio); 
+							trInfo.find('.descuento').html(data.descuento_porcentaje==0? '$ '+parseFloat(data.descuento_importe).toFixed(2): data.descuento_porcentaje+' %'); 
+							trInfo.find('.descuento_motivo').html(data.descuento_motivo); 
+							trInfo.find('.descuento_leal').html('$ '+parseFloat(data.descuento_leal).toFixed(2)); 
+							trInfo.find('.descuento_leal').data('puntos', data.puntos_leal);
+							trInfo.find('.total').html(data.total);
+							trInfo.find('.totalwiva').html(data.total);
+							editDetalle(trInfo.data('detalle'));
+						}
+					} else { toastr["error"]("Stock insuficiente", "No hay stock suficiente del producto actual"); $.unblockUI(); }
+				}
+			}
+
+			$('#tbl-detalle').on('click', '.btnEditProducto', function(e) {
+				$('#btnSaveProducto').prop('disabled',false);
+				e.preventDefault();
+				blockPage();
+
+				trInfo = $(this).parents('tr'); id = trInfo.attr('data-id'); 
+				colaborador = $idColaborador; mascota_id=trInfo.find('.mascota').attr('data-id'); lote=trInfo.find('.lote').text(); recordatorio=trInfo.find('.siguiente_aplicacion').attr('data-recordatorio'); precio=trInfo.find('.precio').text().replace('$', '').replace('%', ''); descuento_importe=trInfo.find('.descuento').text().includes('$')? parseFloat($.trim(trInfo.find('.descuento').text().replace('$', ''))): 0; descuento_porcentaje=trInfo.find('.descuento').text().includes('%')? parseInt($.trim(trInfo.find('.descuento').text().replace('%', ''))): 0; descuento_motivo=trInfo.find('.descuento_motivo').text();
+				descuento_leal = trInfo.find('.descuento_leal').text().replace('$ ', '');
+				puntos_leal = trInfo.find('.descuento_leal').data('puntos');
+				fecha = trInfo.find('.fecha').text(); cantidad=trInfo.find('.cantidad').text(); colaborador_id=trInfo.find('.colaborador').attr('data-id'); mascota_id=trInfo.find('.mascota').attr('data-id');
+				$('#btnSaveProducto').addClass('update').removeClass('add').html('Guardar');
+				$('#frm-item h4').html('Modificar Concepto'); 
+				trInfo.addClass('to-update');
+				if(trInfo.attr('data-paquete') == '0') {
+					$.get($apiUrl+'producto/get/'+id, function(producto) { producto = producto.result;
+						producto.fecha=fecha; producto.cantidad=cantidad; producto.colaborador_id=colaborador_id; producto.mascota_id=mascota_id; producto.lote=lote; producto.recordatorio=recordatorio; producto.precio=precio; producto.descuento_importe=descuento_importe; producto.descuento_porcentaje=descuento_porcentaje; producto.descuento_motivo=descuento_motivo;
+						producto.descuento_leal = descuento_leal;
+						producto.puntos_leal = puntos_leal;
+						openModalDetalle(producto);
+						$.unblockUI();
+					}, 'json');
+				} else {
+					$.get($apiUrl+'paquete/get/'+id, function(paquete) { paquete = paquete.result; paquete.es_paquete = '1';
+						paquete.fecha=fecha; paquete.cantidad=cantidad; paquete.colaborador_id=colaborador_id; paquete.mascota_id=mascota_id; paquete.descuento_importe=descuento_importe; paquete.descuento_porcentaje=descuento_porcentaje; paquete.descuento_motivo=descuento_motivo;
+						paquete.descuento_leal = descuento_leal;
+						paquete.puntos_leal = puntos_leal;
+						openModalDetalle(paquete);
+						$.unblockUI();
+					}, 'json');
+				}
+			});
+
+			$('#frm-item').on('change', '#item-descuento_monto, #item-descuento_porcentaje, #item-descuento_leal', function() {
+				monto = $.isNumeric($('#item-descuento_monto').val())? parseFloat($('#item-descuento_monto').val()): 0.00;
+				montoLeal = $.isNumeric($('#item-descuento_leal').val())? parseFloat($('#item-descuento_leal').val()): 0.00;
+				porcentaje = $.isNumeric($('#item-descuento_porcentaje').val())? $('#item-descuento_porcentaje').val(): 0;
+				descuento = monto > 0 ? monto : (parseFloat($('#item-precio').val()) * parseFloat($('#item-cantidad').val())*(porcentaje/100))
+				if(monto!=0) { 
+					$('#item-descuento_porcentaje').val('0').prop('readonly', true); 
+					$('#item-descuento_motivo').val(undefined).prop('readonly', false); 
+					$('#div-descuento').addClass('show');
+				} else if(parseInt(porcentaje)!=0) { 
+					$('#item-descuento_monto').val('0.00').prop('readonly', true); 
+					$('#item-descuento_motivo').val(undefined).prop('readonly', false); 
+					$('#div-descuento').addClass('show');
+				} else { 
+					$('#item-descuento_monto, #item-descuento_porcentaje').prop('readonly', false); 
+					$('#item-descuento_motivo').val(undefined).prop('readonly', true); 
+				}
+				if((descuento+montoLeal) > parseFloat($('#item-precio').val()) * parseFloat($('#item-cantidad').val())) { 
+					$errLabel = $('<div class="invalid-tooltip">El descuento no puede ser mayor al precio</div>');
+					$('#item-descuento_monto').val('0.00').focus().after($errLabel);
+					$('#btnSaveProducto').addClass('invalid');
+					$errLabel.show();
+
+					setTimeout(() => {
+						$('.invalid-tooltip').remove();
+					}, 3000);
+				}
+			});
+
+			$('#frm-item').on('hidden.bs.modal', function() {
+				$('#div-descuento').removeClass('show');
+				$('#item-descuento_monto').val('0.00').prop('readonly', false);
+				$('#item-descuento_porcentaje').val('0').prop('readonly', false);
+				$('#item-descuento_motivo').val(undefined).prop('readonly', true);
+			});
+
+			$('#tbl-detalle').on('click', '.btnDelProducto', function(e) {
+				e.preventDefault();
+				$('#frm-delProducto .alert').remove();
+				row = $(this).parents('tr');
+				producto_id = row.attr('data-id');
+				det_venta = row.attr('data-detalle');
+				concepto = $.trim($(row).find('.concepto').text());
+				categoria = row.data('categoria');
+				$('#motivoCancelVentaP').val('');
+
+				if(parseInt($('#visita-id').val()) == 0){
+					$('#textAreaMotivo').addClass('hide');
+				}else{
+					$('#textAreaMotivo').removeClass('hide');
+				}
+				$('#frm-delProducto strong').html(concepto);
+				$('#frm-delProducto').modal('show');
+			});
+
+			$('#btnDelVentaProd').on('click', function(){
+				$('#frm-delProducto .alert').remove();
+				selectedColumns = $('#columns-tbl-detalle').val();
+				if(parseInt($('#visita-id').val()) == 0) {
+					blockPage();
+					if(row.next().hasClass('collapse')) row.next().remove();
+					if($('#tbl-detalle tbody [data-categoria="'+categoria+'"]').length == 1) row.next().remove();
+					row.remove();
+					getTotalVisita();
+
+					if($('#tbl-detalle tbody tr').length == 0) {
+						$('#tbl-detalle tbody').append('<tr><td colspan="9" class="text-center p-10 nodata">No se han agregado conceptos a la visita</td></tr>');
+					}
+
+					$.unblockUI();
+					$('#frm-delProducto').modal('hide');
+					toastr["success"]("¡Listo!", "Se eliminó el concepto de la visita."); $.unblockUI();
+				} else {
+					motivoCancel = $.trim($('#motivoCancelVentaP').val());
+					if( motivoCancel == ''){
+						$('#frm-delProducto .modal-body').append('<div class="alert alert-danger text-center"><small>Debe ingresar el motivo de cancelación.</small></div>');
+					}else if(motivoCancel.length < 10){
+						$('#frm-delProducto .modal-body').append('<div class="alert alert-danger text-center"><small>Debe ingresar más de 10 caracteres.</small></div>');
+					}else{
+						blockPage();
+						data = {
+							propietario_id: id_cliente,
+							motivo: motivoCancel
+						};
+						if(id_cliente == <?= $_SESSION['prop_farm'] ?>) data.paquete = $('#paquete-venta').val();
+						$.ajax({
+							url: $apiUrl+'det_venta/del/'+det_venta,
+							type: 'PUT',
+							data: data,
+							dataType: 'json',
+							success: function(resp) {
+								if(resp.response) {
+									if(row.next().hasClass('collapse')) row.next().remove();
+									if($('#tbl-detalle tbody [data-categoria="'+categoria+'"]').length == 1) row.next().remove();
+									row.remove();
+
+									if($('#tbl-detalle tbody tr').length == 0) {
+										$('#tbl-detalle tbody').append('<tr><td colspan="9" class="text-center p-10 nodata">No se han agregado conceptos a la visita</td></tr>');
+									}
+
+									$('#frm-delProducto').modal('hide');
+									toastr["success"]("¡Listo!", "Se eliminó el concepto de la visita.");
+								} else { toastr["error"]("Oops!", resp.message);  $('#frm-delProducto').modal('hide')}
+
+								getTotalVisita();
+								$.unblockUI();
+							}
+						});
+					}
+				}
+			});
+			
+			function ivaIncluido(){
+				$.each($('#tbl-detalle tbody tr.bg-light'), function(index, tr) { 
+					precioOr = parseFloat($.trim($(tr).data('precio-producto'))).toFixed(2);
+					cantidad = parseFloat($(tr).find('.cantidad').text()).toFixed(2);
+					descuentoLeal = parseFloat($.trim($(tr).find('.descuento_leal').text()).replace('$', '')).toFixed(2);
+					if($('#visita-facturar').val() == 1 && $(tr).data('iva') == 3){
+						precio = parseFloat(precioOr/1.16).toFixed(2);
+						descuento = $.trim($(tr).find('.descuento').text());
+						descuentoCant = descuento.includes('$') ? parseFloat(descuento.replace('$', '')).toFixed(2) : parseFloat(((descuento.replace('%', ''))*(cantidad*precio))/100).toFixed(2);
+						subtotal = (cantidad*precio)-descuentoCant-descuentoLeal;
+						$(tr).find('.precio').html('$ '+parseFloat(precio).toFixed(2));
+						$(tr).find('.total').html('$ '+parseFloat(subtotal).toFixed(2));
+					}else{
+						precio = precioOr;
+						descuento = $.trim($(tr).find('.descuento').text());
+						descuentoCant = descuento.includes('$') ? parseFloat(descuento.replace('$', '')).toFixed(2) : parseFloat(((descuento.replace('%', ''))*(cantidad*precio))/100).toFixed(2);
+						subtotal = (cantidad*precioOr)-descuentoCant-descuentoLeal;
+						$(tr).find('.precio').html('$ '+parseFloat(precio).toFixed(2)); 
+						$(tr).find('.total').html('$ '+parseFloat(subtotal).toFixed(2));
+					}
+				});
+			}
+
+			descuentoLeal = 0;
+			function getTotalVisita() {
+				total = 0; sub = 0; ivaTotal = 0;
+				cat = 0; totcat = 0; descuentoLeal = 0; descuentoTotal = 0;
+				$.each($('#tbl-detalle tbody tr.bg-light'), function(index, tr) { prod_id = $(tr).data('id');
+					subtotal = parseFloat($(tr).find('.total').text().replace('$', '').replace(',', ''));
+					cantidad = parseFloat($(tr).find('.cantidad').text());
+					iva = $(tr).data('iva') == 2 || $(tr).data('iva') == 3 ? 0.16 : ($(tr).data('servicio') != 0 ? 0.16 : 0); iva *= subtotal;
+					iva = $('.box-iva').first().is(':visible')? iva: 0;
+
+					currentCat = $(tr).data('categoria');
+					if(currentCat != cat){
+						totcat = 0;
+						cat = currentCat;
+					}
+					sub += subtotal;
+					ivaTotal += iva;
+					total += subtotal + iva;
+					totcat += subtotal + iva;
+					$(tr).find('.iva').html('$ '+parseFloat(iva).toFixed(2))
+					$(tr).find('.totalwiva').html('$ '+parseFloat(subtotal + iva).toFixed(2))
+					$('#tbl-detalle tbody [data-cat-tot="'+cat+'"] strong:eq(1)').html('$ '+totcat.toFixed(2));
+					precio = parseFloat($(tr).find('.precio').text().replace('$', ''));
+					descuento = $(tr).find('.descuento').text();
+					descuentoCant = descuento.includes('$') ? parseFloat(descuento.replace('$', '')).toFixed(2) : parseFloat(((descuento.replace('%', ''))*(cantidad*precio))/100).toFixed(2);
+					descuentoTotal += parseFloat(descuentoCant); 
+					descuentoLeal += parseFloat($(tr).find('.descuento_leal').text().replace('$', '').replace(',', ''));
+				});
+
+				$('#total-visita').html('$ '+total.toFixed(2));
+				$('#visita-subtotal').val((sub+descuentoTotal+descuentoLeal).toFixed(2));
+				$('#visita-descuento').val((descuentoTotal+parseFloat(descuentoLeal)).toFixed(2));
+				$('#visita-iva').val(ivaTotal.toFixed(2));
+				$('#visita-total').val(total.toFixed(2));
+				getTotales();
+			}
+
+			$('#btnAddPago').click(function(e) {
+				e.preventDefault();
+
+				$('#pago-fecha').val(moment().format('DD/MM/YYYY'));
+				$('#pago-monto').val(($.isNumeric($('#visita-saldo').val()) && parseFloat($('#visita-saldo').val())>0)? $('#visita-saldo').val(): 0);
+				$('#pago-metodo_pago option').first().prop('selected', true);
+				$('#pago-nota').val(undefined);
+				$('#btnSavePago').addClass('add').removeClass('update');
+				$('#frm-pago').modal('show');
+			});
+
+			function getSiguienteFolioPago() { 
+				folio = 1;
+				while($('#tbl-pagos tbody tr[data-id="'+folio+'"]').length > 0) {
+					folio++;
+				}
+
+				return folio;
+			}
+
+			$('#pago-monto').focusin(function() {
+				edit_monto = false;
+			})
+
+			$('#pago-monto').focusout(function() {
+				setTimeout(() => { edit_monto = true; }, 1000);
+			})
+
+			$('#pago-monto').change(function() {
+				blockPage();
+
+				metodo = $('#pago-metodo_pago').val();
+
+				aFavor = 0;
+				if(parseInt($('#visita-id').val()) == 0) {
+					$.each($('#tbl-pagos tbody tr'), function(index, item) {
+						if(!$(item).find('td:first').hasClass('dataTables_empty')) {
+							trItem = getTrElement($('#tbl-pagos').DataTable().row($(item)).data());
+							aFavor += parseInt(trItem.find('.metodo_pago').data('id')) == <?= $_SESSION['metodo_pago_saldo_favor'] ?>? parseFloat($.trim(trItem.find('.cantidad').text().replace('$', ''))): 0;
+						}
+					});
+				}
+				aFavor = parseFloat($('#afavor').text().replace(',', '')) - aFavor;
+				org_monto = parseFloat($(this).val());
+				monto = parseFloat($(this).val());
+				saldo = parseFloat($('#visita-saldo').val());
+				if(metodo == <?= $_SESSION['metodo_pago_saldo_favor'] ?>) {
+					if(monto - org_importe > saldo) { monto = saldo + org_importe; }
+					if(monto - org_importe > aFavor) { monto = aFavor + org_importe; }
+				}
+
+				if(org_monto != monto) {
+					$errLabel = $('<div class="invalid-tooltip">Se ha modificado el monto</div>');
+					$(this).after($errLabel);
+					$errLabel.show();
+					setTimeout(() => {
+						$('.invalid-tooltip').remove();
+					}, 3000);
+				}
+
+				$(this).val(monto);
+				$.unblockUI();
+			});
+
+			$('#btnSavePago').click(function(e) {
+				e.preventDefault();
+				blockPage();
+
+				data = {
+					fecha_registro: moment().format('DD/MM/YYYY'),
+					fecha: $('#pago-fecha').val(),
+					dia_semana: moment($('#pago-fecha').val(), 'DD/MM/YYYY').day(),
+					cantidad: $('#pago-monto').val(),
+					metodo_pago_id: $('#pago-metodo_pago').val(),
+					metodo_pago: $('#pago-metodo_pago option:selected').text(),
+					observaciones: $('#pago-nota').val(),
+				};
+				data_add = {
+					visita_id: $('#visita-id').val(),
+					propietario_id: id_cliente,
+					fecha: moment($('#pago-fecha').val(), 'DD/MM/YYYY').format('YYYY-MM-DD'),
+					dia_semana: moment($('#pago-fecha').val(), 'DD/MM/YYYY').day(),
+					cantidad: $('#pago-monto').val(),
+					metodo: $('#pago-metodo_pago').val(),
+					observaciones: $('#pago-nota').val(),
+					fecha_registro: moment().format('YYYY-MM-DD HH:mm:ss'),
+				};
+
+				$errLabel = $('<div class="invalid-tooltip"></div>');
+				if(parseFloat(data.cantidad) == 0) {
+					$errLabel.html('Debe proporcionar el monto del pago');
+					$('#pago-monto').focus().after($errLabel);
+					$errLabel.show();
+
+					$.unblockUI();
+				}else if(data_add.metodo == 0 || data_add.metodo == '' || data_add.metodo == null){
+					$errLabel.html('Debe proporcionar el método de pago');
+					$('#pago-metodo_pago').after($errLabel);
+					$errLabel.show();
+					$.unblockUI();
+
+				} else {
+					if(edit_monto) {
+						metodo = $('#pago-metodo_pago').val();
+						aFavor = 0;
+						if(parseInt($('#visita-id').val()) == 0) {
+							$.each($('#tbl-pagos tbody tr'), function(index, item) {
+								if(!$(item).find('td:first').hasClass('dataTables_empty')) {
+									trItem = getTrElement($('#tbl-pagos').DataTable().row($(item)).data());
+									aFavor += parseInt(trItem.find('.metodo_pago').data('id')) == <?= $_SESSION['metodo_pago_saldo_favor'] ?>? parseFloat($.trim(trItem.find('.cantidad').text().replace('$', ''))): 0;
+								}
+							});
+						}
+						aFavor = parseFloat($('#afavor').text().replace(',', '')) - aFavor;
+						org_monto = parseFloat($('#pago-monto').val());
+						monto = parseFloat($('#pago-monto').val());
+						saldo = parseFloat($('#visita-saldo').val());
+						if(metodo == <?= $_SESSION['metodo_pago_saldo_favor'] ?>) {
+							if(monto - org_importe > saldo) { monto = saldo + org_importe; }
+							if(monto - org_importe > aFavor) { monto = aFavor + org_importe; }
+						}
+
+						if(org_monto != monto) {
+							$errLabel = $('<div class="invalid-tooltip">Se ha modificado el monto</div>');
+							$('#pago-monto').after($errLabel);
+							$errLabel.show();
+							setTimeout(() => {
+								$('.invalid-tooltip').remove();
+							}, 3000);
+
+							$('#pago-monto').val(monto);
+							$.unblockUI();
+						} else {
+							$.get($apiUrl+'colaborador/getByUsuario/<?= $_SESSION['usuario']->id ?>', function(colaborador) { colaborador = colaborador.result;
+								data.colaborador_id = colaborador.id; data_add.colaborador_id = colaborador.id;
+								data.colaborador = '<?= $_SESSION['usuario']->nombre." ".$_SESSION['usuario']->apellidos ?>';
+
+								container = $('#tbl-pagos tbody');
+								if($('#btnSavePago').hasClass('add')) {
+									data.id = getSiguienteFolioPago();
+									addPago(data, data_add);
+									$.unblockUI();
+								} else if($('#btnSavePago').hasClass('update')) {
+									if(org_metodo_pago == <?= $_SESSION['metodo_pago_saldo_favor'] ?>) {
+										if(data_add.metodo == '<?= $_SESSION['metodo_pago_saldo_favor'] ?>') {
+											data_add.nvo_saldo_favor = parseFloat(data_add.cantidad) - parseFloat(org_importe_aFavor);
+										} else {
+											data_add.nvo_saldo_favor = parseFloat(org_importe_aFavor) * -1;
+										}
+									} else if(data_add.metodo == '<?= $_SESSION['metodo_pago_saldo_favor'] ?>') {
+										data_add.nvo_saldo_favor = parseFloat(data_add.cantidad);
+									} else {
+										data_add.nvo_saldo_favor = 0;
+									}
+									tr = container.find('tr[data-id="'+$('#pago-id').val()+'"]');
+									row = $('#tbl-pagos').DataTable().row(tr); trInfo = getTrElement(row.data());
+									trInfo.find('.fecha').html(data.fecha).attr('data-dia', data.dia_semana);
+									trInfo.find('.cantidad').html('$ '+parseFloat(data.cantidad).toFixed(2));
+									trInfo.find('.metodo_pago').html(data.metodo_pago).attr('data-id', data.metodo_pago_id);
+									trInfo.find('.observaciones').html(data.observaciones);
+									editPago($('#pago-id').val(), data_add, row, trInfo);
+			
+									$.unblockUI();
+								}
+							}, 'json');
+						}
+
+					} else { $.unblockUI(); }
+				}
+
+				setTimeout(() => {
+					$('.invalid-tooltip').remove();
+				}, 3000);
+			});
+
+			function addRowPago(data) {
+				selectedColumns = $('#columns-tbl-pagos').val(); cleanTable('tbl-pagos');
+
+				container = $('#tbl-pagos tbody');
+				tr = $('<tr data-id="'+data.id+'"></tr>').appendTo(container);
+				tr.append('<td class="text-center"><small class="fecha" data-dia="'+data.dia_semana+'">'+data.fecha+'</small></td>');
+				tr.append('<td class="text-center"><small class="fecha_registro">'+data.fecha_registro+'</small></td>');
+				tr.append('<td class="text-left"><small class="colaborador" data-id="'+data.colaborador_id+'">'+data.colaborador+'</small></td>');
+				tr.append('<td class="text-justify"><small class="observaciones">'+data.observaciones+'</small></td>');
+				tr.append('<td class="text-center"><small class="metodo_pago" data-id="'+data.metodo_pago_id+'">'+data.metodo_pago+'</small></td>');
+				tr.append('<td class="text-right"><small class="cantidad">$ '+data.cantidad+'</small></td>');
+
+				td = $('<td></td>').appendTo(tr);
+				actions = $('<div></div>').appendTo(td);
+				if(moment(data.fecha_registro, 'DD/MM/YYYY hh:mm:ss').format('DD/MM/YYYY') == moment().format('DD/MM/YYYY') || data.metodo_pago_id != 1) {
+					actions.append('<a href="#" data-popup="tooltip" title="Editar" class="btn btn-xs btn-success btnEditPago"><i class="fa fa-lg fa-pencil"></i></a> ');
+					actions.append('<a href="#" data-popup="tooltip" title="Eliminar" class="btn btn-xs btn-danger btnDelPago"><i class="fa fa-lg fa-trash"></i></a>');
+				}
+
+				createTable('tbl-pagos', false, selectedColumns);
+			}
+
+			function addPago(data, data_add) {
+				if(parseInt($('#visita-id').val()) != 0) {
+					$.post($apiUrl+'pago/add/', data_add, function(pago) {
+						if(pago.response) {
+							data.id = pago.result;
+							addRowPago(data);
+							if(pago.adeudo != undefined) { $('#adeudo').html(new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(pago.adeudo).replace('$', '')); }
+							if(pago.saldo != undefined) { $('#afavor').html(new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(pago.saldo).replace('$', '')); }
+							toastr["success"]("¡Listo!", "Se guardaron los datos correctamente.");
+						} else {
+							toastr["error"]("Oops!", pago.message);
+						}
+						
+						$('#frm-pago').modal('hide');
+						getTotalPagos();
+					}, 'json');
+				} else {
+					$salir = false;
+					addRowPago(data);
+					toastr["success"]("¡Listo!", "Se guardaron los datos correctamente.");
+					$('#frm-pago').modal('hide');
+					getTotalPagos();
+				}
+			}
+
+			function editPago(id, data, row, trInfo) {
+				if(parseInt($('#visita-id').val()) != 0) {
+					$.ajax({
+						url: $apiUrl+'pago/edit/'+id,
+						type: 'PUT',
+						data: data,
+						dataType: 'json',
+						success: function(resp) {
+							if(resp.response) {
+								if(resp.adeudo != undefined) { $('#adeudo').html(new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(resp.adeudo).replace('$', '')); }
+								if(resp.saldo != undefined) { $('#afavor').html(new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(resp.saldo).replace('$', '')); }
+								setTrData(row, trInfo);
+								$('#frm-pago').modal('hide');
+							} else {
+								toastr["error"]("Oops!", resp.message);
+							}
+						}
+					});
+				} else {
+					setTrData(row, trInfo);
+					$('#frm-pago').modal('hide');
+				}
+			}
+
+			org_importe = 0;
+			org_importe_aFavor = 0;
+			org_metodo_pago = 0;
+			$('#frm-pago').on('shown.bs.modal', function() {
+				org_importe = $('#btnSavePago').hasClass('update')? parseFloat($('#pago-monto').val()): 0;
+				org_metodo_pago = parseInt($('#pago-metodo_pago').val());
+				org_importe_aFavor = ($('#btnSavePago').hasClass('update') && org_metodo_pago==<?= $_SESSION['metodo_pago_saldo_favor'] ?>)? parseFloat($('#pago-monto').val()): 0;
+				if(parseFloat($('#afavor').text())>0 || org_metodo_pago==<?= $_SESSION['metodo_pago_saldo_favor'] ?>) {
+					$('#pago-metodo_pago option[value="<?= $_SESSION['metodo_pago_saldo_favor'] ?>"]').removeClass('hide');
+				} else {
+					$('#pago-metodo_pago option[value="<?= $_SESSION['metodo_pago_saldo_favor'] ?>"]').addClass('hide');
+				}
+			});
+
+			$('#frm-pago').on('hidden.bs.modal', function() {
+				$('#pago-monto').val('0.00');
+				$('#pago-metodo_pago option').first().prop('selected', true);
+				$('#pago-nota').val(undefined);
+				$('#btnSavePago').removeClass('add').removeClass('update');
+			});
+
+			$('#tbl-pagos').on('click', '.btnEditPago', function(e) {
+				e.preventDefault();
+				blockPage();
+
+				tr = $(this).parents('tr');
+				trInfo = getTrElement($('#tbl-pagos').DataTable().row(tr).data());
+				$('#pago-id').val(tr.attr('data-id'));
+				$('#pago-fecha').val(trInfo.find('.fecha').text());
+				$('#pago-monto').val($.trim(trInfo.find('.cantidad').text().replace('$', '')));
+				$('#pago-metodo_pago').val(trInfo.find('.metodo_pago').attr('data-id'));
+				$('#pago-nota').val(trInfo.find('.observaciones').html().replace('<br class="hide">', '\n'));
+
+				$('#btnSavePago').addClass('update').removeClass('add');
+				$('#frm-pago').modal('show');
+				$.unblockUI();
+			});
+
+			$('#tbl-pagos').on('click', '.btnDelPago', function(e) {
+				e.preventDefault();
+				row = $(this).parents('tr'); id = row.attr('data-id');
+				blockPage();
+
+				swal({
+					title: "Eliminar pago",
+					text: "Esta acción es irreversible<br />Se eliminará el pago seleccionado<br />¿Deseas continuar?",
+					type: "warning",
+					html: true,
+					showCancelButton: true,
+					cancelButtonText: "Cancelar",
+					confirmButtonColor: "#DD6B55",
+					confirmButtonText: "Si, eliminar",
+					closeOnConfirm: true 
+				}, function(response) {
+					if(response) {
+						selectedColumns = $('#columns-tbl-detalle').val(); cleanTable('tbl-pagos');
+						if(parseInt($('#visita-id').val()) == 0) {
+							row.remove();
+							createTable('tbl-pagos', false, selectedColumns);
+							getTotalPagos();
+							
+							toastr["success"]("¡Listo!", "Se eliminó el pago.");
+							$.unblockUI();
+						} else {
+							$.ajax({
+								url: $apiUrl+'pago/del/'+id,
+								type: 'PUT',
+								dataType: 'json',
+								success: function(resp) {
+									if(resp.response) {
+										row.remove();
+										if(resp.adeudo != undefined) { $('#adeudo').html(new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(resp.adeudo).replace('$', '')); }
+										if(resp.saldo != undefined) { $('#afavor').html(new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(resp.saldo).replace('$', '')); }
+										toastr["success"]("¡Listo!", "Se eliminó el pago.");
+									} else { toastr["error"]("Oops!", resp.message); }
+
+									createTable('tbl-pagos', false, selectedColumns);
+									getTotalPagos();
+									$.unblockUI();
+								}
+							});
+						}
+					}
+				});
+			});
+
+			function getTotalPagos() {
+				total = 0;
+				table = $('#tbl-pagos').DataTable(); 
+				$.each(table.data(), function(index, tr) {
+					total += parseFloat(getTrElement(tr).find('.cantidad').text().replace('$', ''));
+				});
+
+				$('#total-pagos').html('$ '+total.toFixed(2));
+				$('#visita-pagado').val(total.toFixed(2));
+				getTotales();
+			}
+
+			function getTotales() {
+				total = parseFloat($('#visita-total').val());
+				pagado = parseFloat($('#visita-pagado').val());
+				saldo = total - pagado;
+				
+				if(saldo < 0) {
+					cambio = saldo * -1;
+					$('#saldo-cantidad').val(cambio.toFixed(2));
+				} else {
+					$('#saldo-cantidad').val('0');
+				}
+				if(id_cliente == <?= $_SESSION['prop_farm'] ?>) saldo = 0;
+
+				$('#visita-saldo').val(saldo.toFixed(2));
+
+				if(saldo > 0) {
+					$('.finalizar').addClass('hide');
+				} else {
+					$('.finalizar').removeClass('hide');
+				}
+				$('#visita-finalizar').prop('checked', false).trigger('change');
+				$('.finalizar-visita, .visita-cambio').addClass('hide');
+			}
+
+			$('#visita-finalizar').change(function() {
+				$('.visita-cambio').addClass('hide');
+				if($(this).is(':checked')) {
+					$('.finalizar-visita').removeClass('hide');
+					if(parseFloat($('#saldo-cantidad').val()) > 0) {
+						$('.visita-cambio').removeClass('hide');
+					}
+				} else {
+					$('.finalizar-visita').addClass('hide');
+				}
+			});
+
+			$('#visita-facturar').change(function() {
+				if($(this).val() != 0){
+					blockPage();
+					$.get($apiUrl+"propietario/get/"+$('#propietario-id').val(),
+						function (data) {
+							if(!data.fiscales){
+								swal({
+									title: "No existen datos fiscales",
+									text: "Por favor actualice los datos desde el perfil del propietario antes de finalizar la visita",
+									type: "error",
+									html: true,
+									confirmButtonColor: "#DD6B55",
+									confirmButtonText: "Aceptar",
+									closeOnConfirm: true 
+								});
+								$('#visita-facturar').val(0);
+							}
+							$.unblockUI();
+						},
+						"json"
+					);
+				}
+				value = $(this).val();
+				if(value != 0) { $('.box-iva').removeClass('hide'); } 
+				else { $('.box-iva').addClass('hide'); }
+				ivaIncluido();
+				getTotalVisita();
+			});
+
+			$('#btnSaveVisita').click(function(e) {
+				$('.invalid-tooltip').remove();
+				e.preventDefault();
+				$('#btnSaveVisita').prop('disabled',true);
+				blockPage();
+
+				data = {
+					propietario_id: id_cliente,
+					fecha_inicio: moment($('#visita-fecha').val(), 'DD/MM/YYYY').format('YYYY-MM-DD'),
+					observaciones: $('#visita-observaciones').val(),
+					facturar: $('#visita-facturar').val(),
+					status: 1,
+				};
+
+				data.detalles = [];
+				$.each($('#tbl-detalle tbody tr'), function(index, trInfo) {
+					if($(trInfo).hasClass('bg-light')){
+						detalle = {
+							'colaborador_id': $(trInfo).find('.colaborador').data('id'),
+							'propietario_id': id_cliente,
+							'producto_id': $(trInfo).attr('data-id'),
+							'precio': $.trim($(trInfo).find('.precio').text().replace('$', '')),
+							'cantidad': $(trInfo).find('.cantidad').text(),
+							'subtotal': parseFloat($.trim($(trInfo).find('.precio').text().replace('$', ''))) * parseFloat($(trInfo).find('.cantidad').text()),
+							'descuento_importe': $(trInfo).find('.descuento').text().includes('$')? $.trim($(trInfo).find('.descuento').text().replace('$', '')): 0,
+							'descuento_porcentaje': $(trInfo).find('.descuento').text().includes('%')? $.trim($(trInfo).find('.descuento').text().replace('%', '')): 0,
+							'descuento_motivo': $(trInfo).find('.descuento').data('motivo'),
+							'descuento_leal': $(trInfo).find('.descuento_leal').text().replace('$', ''),
+							'total': $.trim($(trInfo).find('.total').text().replace('$', '')),
+							'fecha_asigno': moment().format('YYYY-MM-DD'),
+							'servicio': $(trInfo).data('servicio'),
+						};
+						if(parseInt($(trInfo).find('.mascota').attr('data-id'))!=0) detalle.mascota_id = $(trInfo).find('.mascota').attr('data-id');
+						if($(trInfo).find('.lote').text()!='N/A') { detalle.lote = $(trInfo).find('.lote').text(); }
+						if($(trInfo).find('.siguiente_aplicacion').text()!='N/A') { 
+							detalle.siguiente_aplicacion = moment($(trInfo).find('.siguiente_aplicacion').text(), 'DD/MM/YYYY').format('YYYY-MM-DD'); 
+							detalle.recordatorio = $(trInfo).find('.siguiente_aplicacion').attr('data-recordatorio'); 
+						}
+
+						extra = {categoria: $(trInfo).data('categoria')};
+						if($(trInfo).data('paquete_vacunas') == 1){
+							extra['loteVacuna'] = $.trim($('#loteVacuna').val());
+							extra['notasVacuna'] = $.trim($('#notasVacuna').val());
+						}else{
+							$.each($(trInfo).next().find('.form-control'), function (indexInArray, elem) { 
+								field = $(elem).data('field');
+								extra[field] = $.trim($(elem).val());
+								if(field == 'siguiente')
+									extra.recordatorio = $(elem).data('recordatorio');
+							});
+						}
+						if(detalle.producto_id == <?= $_SESSION['paq_cirugia'] ?>) extra.cirugia = $(trInfo).data('cirugia'); //extra.cirugia = $.parseJSON($(trInfo).data('cirugia')); //$.extend(extra, $.parseJSON($(trInfo).data('cirugia'))); 
+						detalle.extra = extra;
+						if($(trInfo).data('uso') != undefined) detalle.uso = $.parseJSON($(trInfo).data('uso'));
+	
+						data.detalles.push(detalle);
+					}
+				});
+
+				data.pagos = [];
+				$.each($('#tbl-pagos').DataTable().data(), function(index, tr) {
+					trInfo = getTrElement(tr);
+					data.pagos.push({
+						'propietario_id': id_cliente,
+						'colaborador_id': trInfo.find('.colaborador').attr('data-id'),
+						'fecha': moment(trInfo.find('.fecha').text(), 'DD/MM/YYYY').format('YYYY-MM-DD'),
+						'dia_semana': trInfo.find('.fecha').attr('data-dia'),
+						'cantidad': $.trim(trInfo.find('.cantidad').text().replace('$', '')),
+						'metodo': trInfo.find('.metodo_pago').attr('data-id'),
+						'observaciones': trInfo.find('.observaciones').text(),
+					});
+				});
+
+				if(parseFloat($('#saldo-cantidad').val())>0 && $('#visita-finalizar').is(':checked')) {
+					data.accion_saldo = $('#saldo-abonar').is(':checked')? 0: 1;
+				}
+
+				if($('#visita-finalizar').is(':checked')) { 
+					data.fecha_termino = moment().format('YYYY-MM-DD HH:mm:ss'); data.status = 2; 
+					if(descuentoLeal > 0){
+						$.get($apiUrl+"leal/consulta/"+id_cliente,
+							function (resp) {
+								if(resp.code != 100){
+									swal({
+										type: "warning",
+										title: "Oops!",
+										text: resp.message+"\nPor favor elimine todos los descuentos de Leal",
+										timer: 4000
+									});
+									$('#btnSaveVisita').prop('disabled',false);
+									$.unblockUI();
+									return false;
+								}else{
+									if(descuentoLeal > resp.data[0].puntos_activos || resp.data[0].puntos_activos < 100){
+										swal({
+											type: "warning",
+											title: "Oops!",
+											text: "El propietario no tiene suficientes puntos en Leal"+"\nPor favor modifique los descuentos de Leal",
+											timer: 4000
+										});
+										$('#btnSaveVisita').prop('disabled',false);
+										$.unblockUI();
+										return false;
+									}else{
+										saveVisita(data);
+									}
+								}
+							},
+							"json"
+						);
+					}else{
+						saveVisita(data);
+					}
+				}else{
+					saveVisita(data);
+				}
+
+				setTimeout(() => {
+					$('.invalid-tooltip').remove();
+				}, 3000);
+			});
+
+			function saveVisita(data){
+				if(parseInt($('#visita-id').val()) == 0) {
+					$errLabel = $('<div class="invalid-tooltip"></div>');
+					if(id_cliente == <?= $_SESSION['prop_farm'] ?>) data.paquete = $('#paquete-venta').val();
+					if(data.detalles.length == 0) {
+						toastr["error"]("Oops!", "Debes agregar mínimo un producto a la visita");
+						$.unblockUI();
+					} else if(data.fecha_inicio=='Invalid date' || data.fecha_inicio=='') {
+						$errLabel.html('Debe proporcionar la fecha de la visita');
+						$('#visita-fecha').focus().after($errLabel);
+						$errLabel.show();
+						$.unblockUI();
+					}else if(id_cliente == <?= $_SESSION['prop_farm'] ?> && data.paquete == 0){
+						$errLabel.html('Debe seleccionar el concepto del paquete');
+						$('#paquete-venta').focus().after($errLabel);
+						$errLabel.show();
+						$.unblockUI();
+					} else {
+						$.post($apiUrl+'visita/add/', data, function(visita) {
+							if(visita.response) {
+								id_visita = visita.result;
+								$('#visita-id').val(id_visita);
+								if($('#visita-finalizar').is(':checked') && descuentoLeal > 0){
+									redimeLeal(id_visita, true);
+								}else{
+									swal({
+										type: "success",
+										title: "¡Listo!",
+										text: "Se guardaron los datos correctamente.",
+									}, function(respuesta) {
+										$salir = true;
+										if(visita.response) {
+											$.ajax({
+												url: $apiUrl+'visita/cerrarVisita/'+id_visita,
+												type: 'PUT',
+												dataType: 'json',
+												success: function(resp) {
+													if(!resp) { toastr["error"]("Oops!", resp.message); }
+													else{
+														window.open('<?= URL_ROOT ?>/ticket/'+$.md5(id_visita.toString()), '_blank');
+														window.location.href = '<?= URL_ROOT ?>/propietario/'+$.md5(data.propietario_id)+'#prop-visitas';
+													}
+													return false;
+												}
+											});
+										} else {  
+											$('#btnSaveVisita').prop('disabled',false);
+											toastr["error"]("Oops!", visita.message); 
+										}
+									});
+								}
+							} else { toastr["error"]("Oops!", visita.message); $.unblockUI(); }
+						}, 'json');
+					}
+				} else {
+					$errLabel = $('<div class="invalid-tooltip"></div>');
+					if(data.fecha_inicio=='Invalid date' || data.fecha_inicio=='') {
+						$errLabel.html('Debe proporcionar la fecha de la visita');
+						$('#visita-fecha').focus().after($errLabel);
+						$errLabel.show();
+						$.unblockUI();
+					} else {
+						$.ajax({
+							url: $apiUrl+'visita/edit/'+$('#visita-id').val(),
+							type: 'PUT',
+							data: data,
+							dataType: 'json',
+							success: function(visita) {
+								if(visita.response) { 
+									if($('#visita-finalizar').is(':checked') && descuentoLeal > 0){
+										redimeLeal($('#visita-id').val(), false);
+									}else{
+										window.open('<?= URL_ROOT ?>/ticket/'+$.md5($('#visita-id').val()), '_blank');
+										window.location.href = '<?= URL_ROOT ?>/propietario/'+$.md5(data.propietario_id)+'#prop-visitas';
+										$.unblockUI();
+									}
+								} else {
+									$('#btnSaveVisita').prop('disabled',false);
+									toastr["error"]("Oops!", visita.message);
+									$.unblockUI();
+								}
+							}
+						});
+					}
+				}
+			}
+
+			$('#item-puntos_leal').change(function(){
+				valor = parseFloat(<?= $hospital->leal_puntos; ?>);
+				puntos = $('#item-puntos_leal').val() == '' ? 0 : parseFloat($.trim($(this).val()))
+				pesos = puntos * valor;
+				$('#item-descuento_leal').val(pesos.toFixed(2));
+			});
+
+			function redimeLeal(visita, nueva){
+				blockPage();
+				$.get($apiUrl+"leal/redimeLealApi/"+visita,
+					function (data, textStatus, jqXHR) {
+						if(data.code == 100){
+							if(nueva){
+								swal({
+									type: "success",
+									title: "¡Listo!",
+									text: "Se guardaron los datos correctamente.",
+								}, function(respuesta) {
+									$salir = true;
+									$.ajax({
+										url: $apiUrl+'visita/cerrarVisita/'+visita,
+										type: 'PUT',
+										dataType: 'json',
+										success: function(resp) {
+											if(!resp) { toastr["error"]("Oops!", resp.message); }
+											else{
+												window.open('<?= URL_ROOT ?>/ticket/'+$.md5(visita.toString()), '_blank');
+												window.location.href = '<?= URL_ROOT ?>/propietario/'+$.md5(id_cliente)+'#prop-visitas';
+											}
+											return false;
+										}
+									});
+									$.unblockUI();
+								});
+							}else{
+								window.open('<?= URL_ROOT ?>/ticket/'+$.md5($('#visita-id').val()), '_blank');
+								window.location.href = '<?= URL_ROOT ?>/propietario/'+$.md5(id_cliente)+'#prop-visitas';
+							}
+						}else{
+							$.ajax({
+								url: $apiUrl+'visita/free/'+visita,
+								type: 'PUT',
+								dataType: 'json',
+								success: function(resp) {
+									if(resp.response) {
+										swal({
+											type: "warning",
+											title: "Oops!",
+											text: "Falló la redención de puntos en Leal: "+data.message+".\nPor favor elimine todos los descuentos de Leal",
+											timer: 6000
+										});
+									}
+									$('#btnSaveVisita').prop('disabled',false);
+									$.unblockUI();
+								}
+							});
+						}
+					},
+					"json"
+				);
+			}
+
+			$('#btnExit').click(function(e) {
+				e.preventDefault();
+				blockPage();
+
+				swal({
+					title: "SALIR",
+					text: "Se perderán todos los datos de esta visita</br>¿Que deseas hacer?",
+					type: "warning",
+					html: true,
+					showCancelButton: true,
+					cancelButtonText: "Permanecer",
+					confirmButtonColor: "#DD6B55",
+					confirmButtonText: "Salir",
+					closeOnConfirm: true 
+				}, function(respuesta) {
+					if(respuesta) {
+						window.location.href = '<?= URL_ROOT ?>/propietario/<?= md5($propietario->id) ?>';
+					}
+
+					$.unblockUI();
+				});
+			});
+
+			function clearData() {
+				$('.invalid-tooltip').remove();
+				$('#frm-item input').val('');
+				$('#item-id').val(0);
+			}
+
+			var temporal = null;
+			function evaluar(time) {
+				setTimeout(() => {
+					if(time == temporal) {
+						$("#tbl-conceptos_filter label input").val($.trim($('#bus').val())).trigger('keyup');
+					}
+				}, 1000);
+			}
+
+			function cleanTable(tbl) {
+				if($.fn.dataTable.isDataTable('#'+tbl)) {
+					table = $('#'+tbl).DataTable();
+					table.destroy();
+				}
+				$("#nodata").remove();
+			}
+
+			function createTable(tbl, paging, arrColumns=null, page=0) {
+				container = $('<div class="form-inline pull-right" style="overflow: visible"></div>');
+				select = $('<select class="selectpicker btn-group-sm" multiple data-selected-text-format="static" id="columns-'+tbl+'" title="Mostrar/Ocultar columnas" data-width="auto"></select>').appendTo(container);
+				if(tbl == 'tbl-conceptos') {
+					select.append('<option class="form-control-sm" value="0">Existencia</option>');
+					select.append('<option class="form-control-sm" value="1">Unidad</option>');
+					select.append('<option class="form-control-sm" value="2">Descripción</option>');
+					select.append('<option class="form-control-sm" value="3">Marca</option>');
+					select.append('<option class="form-control-sm" value="4">Precio</option>');
+					select.append('<option class="form-control-sm" value="5">Código</option>');
+					select.append('<option class="form-control-sm" value="6">Categoría</option>');
+					select.append('<option class="form-control-sm" value="7">Subcategoría</option>');
+					select.append('<option class="form-control-sm" value="8">Tipo</option>');
+					select.selectpicker('val', arrColumns!=null? arrColumns: [0, 1, 2, 3, 4, 5]);
+					searchContainer = $('<div class="input-group input-group-sm"></div>').appendTo(container);
+					icon = $('<div class="input-group-prepend"></div>').appendTo(searchContainer);
+					icon.append('<span class="input-group-text"><i class="fa fa-search"></i></span>');
+					search = $('<input type="search" id="bus" placeholder="Buscar por nombre o correo" class="form-control form-control-sm">').appendTo(searchContainer);
+				} else if(tbl == 'tbl-detalle') {
+					select.append('<option class="form-control-sm" value="0">Fecha</option>');
+					select.append('<option class="form-control-sm" value="1">Asignado a</option>');
+					select.append('<option class="form-control-sm" value="2">Cantidad</option>');
+					select.append('<option class="form-control-sm" value="3">Concepto</option>');
+					select.append('<option class="form-control-sm" value="4">Mascota</option>');
+					select.append('<option class="form-control-sm" value="5">Lote</option>');
+					select.append('<option class="form-control-sm" value="6">Siguiente aplicación</option>');
+					select.append('<option class="form-control-sm" value="7">Precio Unitario</option>');
+					select.append('<option class="form-control-sm" value="8">Descuento</option>');
+					select.append('<option class="form-control-sm" value="9">Motivo</option>');
+					select.append('<option class="form-control-sm" value="10">Importe</option>');
+					select.selectpicker('val', arrColumns!=null? arrColumns: [2, 3, 7, 8, 10]);
+				} else if(tbl == 'tbl-pagos') {
+					select.append('<option class="form-control-sm" value="0">Fecha</option>');
+					select.append('<option class="form-control-sm" value="1">Registrado el</option>');
+					select.append('<option class="form-control-sm" value="2">Colaborador</option>');
+					select.append('<option class="form-control-sm" value="3">Nota</option>');
+					select.append('<option class="form-control-sm" value="4">Método</option>');
+					select.append('<option class="form-control-sm" value="5">Monto</option>');
+					select.selectpicker('val', arrColumns!=null? arrColumns: [0, 1, 2, 3, 4, 5]);
+				}
+
+				columnDefs = [];
+				switch(tbl) {
+					case 'tbl-conceptos':
+						columnDefs = [
+							{"orderable": true, "targets": [0], "visible": ($.inArray("0", select.val())>=0)},
+							{"orderable": true, "targets": [1], "visible": ($.inArray("1", select.val())>=0)},
+							{"orderable": true, "targets": [2], "visible": ($.inArray("2", select.val())>=0)},
+							{"orderable": true, "targets": [3], "visible": ($.inArray("3", select.val())>=0)},
+							{"orderable": true, "targets": [4], "visible": ($.inArray("4", select.val())>=0)},
+							{"orderable": true, "targets": [5], "visible": ($.inArray("5", select.val())>=0)},
+							{"orderable": true, "targets": [6], "visible": ($.inArray("6", select.val())>=0)},
+							{"orderable": true, "targets": [7], "visible": ($.inArray("7", select.val())>=0)},
+							{"orderable": true, "targets": [8], "visible": ($.inArray("8", select.val())>=0)},
+							{"orderable": false, "targets": [9]},
+						];
+						break;
+
+					case 'tbl-detalle':
+						columnDefs = [
+							{"orderable": true, "targets": [0], "visible": ($.inArray("0", select.val())>=0)},
+							{"orderable": true, "targets": [1], "visible": ($.inArray("1", select.val())>=0)},
+							{"orderable": true, "targets": [2], "visible": ($.inArray("2", select.val())>=0)},
+							{"orderable": true, "targets": [3], "visible": ($.inArray("3", select.val())>=0)},
+							{"orderable": true, "targets": [4], "visible": ($.inArray("4", select.val())>=0)},
+							{"orderable": true, "targets": [5], "visible": ($.inArray("5", select.val())>=0)},
+							{"orderable": true, "targets": [6], "visible": ($.inArray("6", select.val())>=0)},
+							{"orderable": true, "targets": [7], "visible": ($.inArray("7", select.val())>=0)},
+							{"orderable": true, "targets": [8], "visible": ($.inArray("8", select.val())>=0)},
+							{"orderable": true, "targets": [9], "visible": ($.inArray("9", select.val())>=0)},
+							{"orderable": true, "targets": [10], "visible": ($.inArray("10", select.val())>=0)},
+							{"orderable": false, "targets": [11]},
+						];
+						break;
+
+					case 'tbl-pagos':
+						columnDefs = [
+							{"orderable": true, "targets": [0], "visible": ($.inArray("0", select.val())>=0)},
+							{"orderable": true, "targets": [1], "visible": ($.inArray("1", select.val())>=0)},
+							{"orderable": true, "targets": [2], "visible": ($.inArray("2", select.val())>=0)},
+							{"orderable": true, "targets": [3], "visible": ($.inArray("3", select.val())>=0)},
+							{"orderable": true, "targets": [4], "visible": ($.inArray("4", select.val())>=0)},
+							{"orderable": true, "targets": [5], "visible": ($.inArray("5", select.val())>=0)},
+							{"orderable": false, "targets": [6]},
+						];
+						break;
+				}
+				if(tbl!='tbl-conceptos') {
+					$('#'+tbl).dataTable( {
+						// scrollY: false,
+						scrollX: false,
+						paging:  paging,
+						pagingType: "full_numbers",
+						dom:     'Rl<"#toolbar-'+tbl+'">frtip',
+						"columnDefs": columnDefs,
+						'order': [[(tbl=="tbl-conceptos"? 2: (tbl=="tbl-detalle"? 3: 0)), (tbl=="tbl-pagos"? 'desc': 'asc')]], 
+						lengthMenu: [[3,5,10,15],[3,5,10,15]]
+					});
+				} else {
+					$('#'+tbl).dataTable( {
+						'scrollX': false,
+						'paging': paging,
+						'pagingType': "full_numbers",
+						'dom': 'Rl<"#toolbar-'+tbl+'">frtip',
+						'columnDefs': [
+							{'data': 'cantidad', 'title': 'Existencia', 'visible': select.val().includes('0'), 'orderable': true, 'targets': [0], 'className': 'align-middle'},
+							{'data': 'txt_unidad', 'title': 'Unidad', 'visible': select.val().includes('1'), 'orderable': true, 'targets': [1], 'className': 'align-middle'},
+							{'data': 'nombre', 'title': 'Descripcion', 'visible': select.val().includes('2'), 'orderable': true, 'targets': [2], 'className': 'align-middle'},
+							{'data': 'marca', 'title': 'Marca', 'visible': select.val().includes('3'), 'orderable': true, 'targets': [3], 'className': 'align-middle'},
+							{'data': 'precio', 'title': 'Precio', 'visible': select.val().includes('4'), 'orderable': true, 'targets': [4], 'className': 'align-middle'},
+							{'data': 'codigo', 'title': 'Código', 'visible': select.val().includes('5'), 'orderable': true, 'targets': [5], 'className': 'align-middle'},
+							{'data': 'categoria', 'title': 'Categoría', 'visible': select.val().includes('6'), 'orderable': true, 'targets': [6], 'className': 'align-middle'},
+							{'data': 'subcategoria', 'title': 'Subcategoría', 'visible': select.val().includes('7'), 'orderable': true, 'targets': [7], 'className': 'align-middle'},
+							{'data': 'tipo', 'title': 'Tipo', 'visible': select.val().includes('8'), 'orderable': true, 'targets': [8], 'className': 'align-middle'},
+							{'data': 'accionesVisita', 'title': 'Acciones', 'visible': true, 'orderable': false, 'targets': [9], 'className': 'text-right align-middle'},
+						],
+						"scrollCollapse": true,
+						'order': [[2,'asc'],[6,'asc'],[7,'asc'],[8,'asc']],
+						'processing': true,
+						'serverSide': true,
+						'ajax': {
+							url: $apiUrl+'producto/getAllBuscaTemplate/'+($.isNumeric(page)? page: 0)+'/0/0/_/0/0/1/<?= $propietario->id ?>',
+							type: 'GET',
+						},
+						'createdRow': function(row, data, dataIndex) { trow = $(row)
+							trow.attr('data-id', data.data_id).attr('data-paquete', data.data_paquete);
+						},
+						'lengthMenu': [[3,5,10,15],[3,5,10,15]]
+					});
+				}
+
+				if(tbl=='tbl-conceptos') {
+					$('#toolbar-tbl-conceptos').html(container);
+					$('#toolbar-tbl-conceptos #bus').keyup(function(e) { 
+						temporal = moment().format('x')+"-"+Math.random();
+						evaluar(temporal);
+					});
+					$("#toolbar-tbl-conceptos #bus").on("search", function(evt){
+						$("#tbl-conceptos_filter label input").val(undefined).trigger('keyup');
+					});
+					select.on('changed.bs.select', function(e, index) { blockPage();
+						blockPage();
+						column = $('#'+tbl).DataTable().column(index);
+						column.visible(!column.visible());
+						$.unblockUI();
+					});
+				} else if(tbl=='tbl-detalle' || tbl=='tbl-pagos') {
+					$('#toolbar-'+tbl).html(container);
+					select.change(function() {
+						cleanTable(tbl);
+						createTable(tbl, false, select.val());
+					});
+				}
+
+				$('#'+tbl).parents('.table-responsive').css('overflow', 'visible');
+				$("#tbl-conceptos_filter label").hide();
+				$("#tbl-detalle_filter label").hide();
+				$("#tbl-pagos_filter label").hide();
+				$("#tbl-pagos_info").hide();
+			}
+
+			$('#tbl-detalle').on('blur', '.form-control', function () {
+				field = $(this).data('field');
+				field = field == 'loteVacuna' ? 'loteV' : (field == 'notasVacuna' ? 'observaciones' : field)
+				if(field == 'loteV'){
+					if($('#visita-id').val() != 0){
+						data = {lote: $('#loteVacuna').val()}
+						$.ajax({
+							url: $apiUrl+'vacuna/edit/'+idVacuna,
+							type: 'PUT',
+							dataType: 'json',
+							data: data,
+							success: function(resp) { }
+						});
+					}
+				}else if(field == 'observaciones'){
+					data = {observaciones: $('#notasVacuna').val()}
+					if($('#visita-id').val() != 0){
+						$.ajax({
+							url: $apiUrl+'vacuna/edit/'+idVacuna,
+							type: 'PUT',
+							dataType: 'json',
+							data: data,
+							success: function(resp) { }
+						});
+					}
+				}else{
+					value = $.trim($(this).val());
+					det = $(this).parents('tr').prev().data('detalle');
+					tipo = $(this).parents('tr').prev().data('categoria');
+					pet = $(this).parents('tr').prev().find('.mascota').data('id');
+					if(det != 'undefined' && value != ''){
+						data ={det_venta_id: det, mascota_id: pet, visita_id: <?= isset($visita) ? $visita->id : 0 ?>, tipo: tipo}
+						data[field] = value;
+						$.ajax({
+							url: $apiUrl+'mascota/updateExtra/',
+							type: 'PUT',
+							dataType: 'json',
+							data: data,
+							success: function(resp) { }
+						});
+					}
+				}
+			});
+
+			$('#tbl-detalle').on('click', '.btnAplicacion', function(e) { e.preventDefault();
+				blockPage();
+					tr = $(this).parents('tr');
+					id = tr.data('detalle');
+
+					$(this).addClass('hide');
+					tr.find('.concepto .text').prepend('Aplicación ');
+					tr.find('.btnMedicacion').addClass('hide'); tr.find('.btnBack').removeClass('hide'); 
+					
+					$(tr).data('tipo', 'aplicacion');
+					$(tr).data('old-iva', $(tr).data('iva')); $(tr).data('iva', 2);
+					$(tr).data('servicio', 1);
+
+					if(parseInt($('#visita-id').val()) != 0){
+						convertirProd(id, 1, tr);
+					}else{
+						updateIva(tr, 1);
+						getTotalVisita();
+					}
+				$.unblockUI();
+
+			});
+
+			$('#tbl-detalle').on('click', '.btnMedicacion', function(e) { e.preventDefault();
+				blockPage();
+					tr = $(this).parents('tr');
+					id = tr.data('detalle');
+
+					$(this).addClass('hide');
+					tr.find('.concepto .text').prepend('Medicación ');
+					tr.find('.btnAplicacion').addClass('hide'); tr.find('.btnBack').removeClass('hide'); tr.data('tipo', 'medicacion');
+
+					tr.data('old-iva', tr.data('iva')); tr.data('iva', 2);
+					tr.data('servicio', 2);
+
+					if(parseInt($('#visita-id').val()) != 0){
+						convertirProd(id, 2, tr);
+					}else{
+						updateIva(tr, 2);
+						getTotalVisita();
+					}
+				$.unblockUI();
+
+				
+			});
+
+			$('#tbl-detalle').on('click', '.btnBack', function(e) { e.preventDefault();
+				blockPage();
+					tr = $(this).parents('tr');
+					id = tr.data('detalle');
+
+					$(this).addClass('hide');
+					text = tr.find('.concepto .text').text().replace('Aplicación ', ''); text = text.replace('Medicación ', ''); tr.find('.concepto .text').html(text);
+					tr.find('.btnAplicacion, .btnMedicacion').removeClass('hide'); tr.removeAttr('tipo');
+
+					tr.data('iva', tr.data('old-iva')); tr.removeAttr('data-old-iva');
+					tr.data('servicio', 0);
+
+					if(parseInt($('#visita-id').val()) != 0){
+						convertirProd(id, 0, tr);
+					}else{
+						updateIva(tr, 0);
+						getTotalVisita();
+					}
+				$.unblockUI();
+			});
+
+			function convertirProd(id, servicio, tr){
+				blockPage();
+				$.ajax({
+					url: $apiUrl+'det_venta/convertirProd/'+id,
+					type: 'PUT',
+					data: {servicio: servicio},
+					dataType: 'json',
+					success: function(){
+						updateIva(tr, servicio);
+						getTotalVisita();
+					}
+				});
+				$.unblockUI();
+			}
+
+			function updateIva(trItem, tipoIva) {
+				if($('#visita-id').val()!=0 && $('#visita-id').data('facturar')!=0) {
+					blockPage();
+					data = {
+						colaborador_id: '<?= $_SESSION['colaborador']->id ?>',
+						temp_colaborador: '<?= $_SESSION['colaborador']->nombre." ".$_SESSION['colaborador']->apellidos ?>',
+						propietario_id: $('#visita-id').data('propietario'),
+						producto_id: trItem.data('id'),
+						precio: trItem.find('.precio').text(),
+						cantidad: trItem.find('.cantidad').text(),
+						subtotal: '$ '+parseFloat(parseFloat($.trim(trItem.find('.precio').text().replace('$', '')))*parseFloat(trItem.find('.cantidad').text())).toFixed(2),
+						descuento_importe: trItem.find('.descuento').text().includes('$')? $.trim(trItem.find('.descuento').text().replace('$', '')): 0,
+						descuento_porcentaje: trItem.find('.descuento').text().includes('%')? $.trim(trItem.find('.descuento').text().replace('%', '')): 0,
+						descuento_motivo: trItem.find('.descuento').data('motivo'),
+						temp_descuento: trItem.find('.descuento').text(),
+						total: trItem.find('.total').text().replace(',','').replace('$',''),
+						colaborador_asigno_id: trItem.find('.colaborador_asigno').data('id'),
+						fecha_asigno: trItem.find('.colaborador_asigno').data('fecha'),
+						temp_mascota_id: trItem.find('.mascota').data('id'),
+						temp_mascota: trItem.find('.mascota').text(),
+						temp_es_paquete: trItem.data('paquete'),
+						iva: trItem.data('iva'),
+						categoria: trItem.data('cat'),
+						categoria_id: trItem.data('categoria'),
+						subcategoria: trItem.data('subcategoria'),
+						facturable: trItem.data('facturable'),
+						uso_controlado: trItem.data('controlado'),
+						recordatorio: trItem.data('recordatorio'),
+						temp_producto: trItem.find('.concepto .text').text(),
+						temp_lote: trItem.data('lote'),
+						temp_siguiente_aplicacion: trItem.data('siguiente_aplicacion'),
+						tipo_iva: tipoIva, 
+						descuento_leal: $.trim(trItem.find('.descuento_leal').text().replace('$ ', '')),
+						servicio: trItem.data('servicio')
+					};
+
+					editDetalle(tr.data('detalle'));
+				}
+			}
+		});
+	</script>

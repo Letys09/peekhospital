@@ -1,0 +1,154 @@
+/* Mantén tus estilos existentes */
+.boton {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 3rem !important;
+    font-weight: bold;
+    color: white;
+    background-color: #2e75b6;
+    width: 100%;
+    height: 100%;
+}
+.boton:hover {
+    color: white;
+    background-color: #2eb633;
+}
+.full-height {
+    height: 100vh;
+}
+.full-width {
+    width: 45%;
+}
+.position-absolute {
+    position: absolute;
+}
+.top-left {
+    top: 5%;
+    left: 5%;
+}
+.top-right {
+    top: 5%;
+    right: 5%;
+}
+.center {
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 45%;
+}
+.bottom-left {
+    bottom: 5%;
+    left: 5%;
+}
+.bottom-right {
+    bottom: 5%;
+    right: 5%;
+}
+
+/* Estilo para el contenedor de vista */
+#vista {
+    display: flex;
+    flex-direction: column;
+    justify-content: center; /* Centra verticalmente */
+    align-items: center; /* Centra horizontalmente */
+    height: calc(100svh - 7rem);
+    padding: 0 20px; /* Padding para asegurarse de que el contenido no esté pegado a los bordes */
+    box-sizing: border-box;
+}
+
+/* Contenedor interno de grid */
+#grid-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 4fr)); /* Columnas flexibles */
+    gap: 10px; /* Espacio entre los elementos */
+    width: 100%; /* Asegura que el grid ocupe todo el ancho del contenedor */
+    max-width: 1800px; /* Limita el ancho máximo del grid */
+    box-sizing: border-box;
+    overflow: auto;
+}
+
+/* Ajuste de .registro para hacerlos más anchos */
+.registro {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: white;
+    background-color: #42b62e;
+    min-height: 150px; /* Ajusta la altura según sea necesario */
+    text-align: center;
+    padding: 10px;
+    box-sizing: border-box;
+    word-wrap: break-word; /* Para evitar desbordamiento de texto */
+    width: 100%;
+    height: 100%;
+}
+.registro:hover {
+    color: black;
+    background-color: #ecf4ec;
+}
+
+/* Estilo para el footer */
+#footer {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    display: flex;
+    justify-content: right;
+    padding: 10px;
+    background-color: #f1f1f1;
+    height: 7rem;
+}
+
+/* Estilo adicional para el botón de regresar */
+.regresar {
+    background-color: #d9534f;
+    color: white;
+    min-width: 300px; /* Ajusta el ancho mínimo según sea necesario */
+    height: 70px; /* Ajusta la altura según sea necesario */
+    font-size: 1.5rem;
+    font-weight: bold;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 10px;
+}
+.regresar:hover {
+    color: white;
+    background-color: #c9302c;
+}
+
+.container-5-buttons{
+    display: flex;
+    flex-direction: column;
+    height: 100svh;
+    gap: 5rem;
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+}
+
+.btn-full-w{
+    flex-grow: 1;
+    gap: 5rem;
+}
+.container-5-buttons > div{
+    flex-grow: 1;
+    gap: 5rem;
+}
+
+.btn-centro{
+    width: 80%;
+}
+
+#btnDelUltimo{
+    color: white;
+    background-color: #2eb633;
+    font-size: 2.25rem;
+}
+
+#btnExit{
+    font-size: 2.25rem;
+}

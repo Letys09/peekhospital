@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <link href="<?=URL_ROOT?>/assets/plugins/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+	<link href="<?=URL_ROOT?>/assets/css/hospital.css" rel="stylesheet">
+    <link href="<?= URL_ROOT ?>/assets/plugins/toast/toastr.min.css" rel="stylesheet" />
+    <link rel="icon" type="image/png" sizes="16x16" href="<?=URL_ROOT?>/assets/images/favicon.ico">
+	<title><?= 'Principal | ' . SITE_NAME ?></title>
+</head>
+<body class="fix-header fix-sidebar card-no-border" <?php if(isset($area)): ?> style="background: #EEF5F9;"<?php endif; ?>>
+    <div class="container-fluid container-5-buttons " id="contenedor">
+        <div class="d-flex">
+            <div class="btn-full-w w-50">
+                <button class="btn boton getInfo" data-tipo="cirugia">CIRUGÍAS</button>
+            </div>
+            <div class="btn-full-w w-50">
+                <button class="btn boton getInfo" data-tipo="anestesia">ANESTESIAS</button>
+            </div>
+        </div>
+        <div class="d-flex justify-content-center">
+            <button class="btn boton getInfo btn-centro" data-tipo="hospital">HOSPITALIZADOS</button>
+        </div>
+        <div class="d-flex">
+            <div class="btn-full-w w-50">
+                <button class="btn boton getInfo" data-tipo="procedimiento">PROCEDIMIENTOS</button>
+            </div>
+            <div class="btn-full-w w-50">
+                <button class="btn boton getInfo" data-tipo="visita">VISITAS ABIERTAS</button>
+            </div>
+        </div>
+    </div>
+    <div class="container-fluid full-height position-relative hide" id="vista"></div>
+    <div class="hide" id="footer"></div>
+</body>
+</html>
+
+<script src="<?= URL_ROOT ?>/assets/plugins/bootstrap/js/popper.min.js"></script>
+<script src="<?= URL_ROOT ?>/assets/plugins/bootstrap/js/bootstrap.min.js"></script>
+<script src="<?= URL_ROOT ?>/assets/js/jquery-2.2.4.min.js"></script>
+<script src="<?= URL_ROOT ?>/assets/plugins/toast/toastr.min.js"></script>
+<script src="<?= URL_ROOT ?>/assets/plugins/md5/md5.min.js"></script>
+
+<script>
+    $(function(){
+        const url = '<?= URL_ROOT ?>';
+        toastr.options = {									
+            "positionClass": "toast-top-center",
+            "timeOut": "4000",
+        }
+        $('#contenedor').show();
+        $('#vista').hide();
+        $('#footer').hide();
+
+        $('body').on('click', '.getInfo', function(e){
+            e.preventDefault();
+            let tipo = $(this).data('tipo');
+            $.get(`${url}/agenda/get/${tipo}`, function(resp){
+                if(resp.response){
+                    $('#vista').empty();
+                    $('#vista').append('<div id="grid-container"></div>');
+                    $.each(resp.registros, function(index, item){
+                        switch (tipo) {
+                            case 'cirugia':
+                                texto = `${item.mascota}<br>${item.propietario}<br>${item.colaborador}<br>CIRUGIA - ${(item.producto.toUpperCase())}`;       
+                                break;
+                            case 'procedimiento':
+                                texto = `${item.mascota}<br>${item.propietario}<br>${item.colaborador}<br>${(item.producto.toUpperCase())}`;                                  
+                                break;
+                            case 'anestesia':
+                                texto = `${item.mascota}<br>${item.propietario}<br>${item.colaborador}<br>${(item.producto.toUpperCase())}`;                             
+                                break;
+                            case 'hospital':
+                                texto = `${item.mascota}<br>${item.propietario}<br>HOSPITALIZADO`;
+                                break;
+                            case 'visita':
+                                texto = `${item.propietario}<br>VISITA - ${item.comprobante}`;
+                                break;
+                            default: texto = '';
+                                break;
+                        }
+                        $('#grid-container').append(`<div class="">
+                                                        <button class="btn registro" data-id="${item.id}" data-tipo="${tipo}">
+                                                            ${texto}
+                                                        </button>
+                                                    </div>`);
+                    });
+
+                    $('#footer').html('<button class="btn btn-xl regresar">REGRESAR</button>');
+                    $('#contenedor').hide();
+                    $('#vista').show();
+                    $('#footer').show();
+                }else{
+                    toastr['warning']('Sin registros', 'No hay información para hoy.');
+                }
+            });
+        });
+
+        $('body').on('click', '.regresar', function(e){
+            e.preventDefault();
+            $('#vista').hide();
+            $('#footer').hide();
+            $('#contenedor').show();
+        });
+
+        $('body').on('click', '.registro', function(e){
+            e.preventDefault();
+            let registro_id = $.md5(String($(this).data('id'))); // id del registro en agenda
+            let tipo_visita = $.md5(String($(this).data('tipo')));
+            window.location.href = '<?= URL_ROOT ?>/visita/'+tipo_visita+'/'+registro_id;
+
+            // si es hospital se tiene que mandar el id de la visita
+        });
+
+    });
+</script>
+

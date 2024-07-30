@@ -1,0 +1,144 @@
+<?php 
+    if(!isset($_SESSION['username'])){
+        header('Location: /login');
+        exit();
+    }
+?>
+<!DOCTYPE html>
+<html lang="es">
+	<head>
+		<meta charset="utf-8">
+		<meta http-equiv="X-UA-Compatible" content="IE=edge">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<meta name="description" content="">
+		<meta name="author" content="">
+		<link rel="icon" type="image/png" sizes="16x16" href="<?=URL_ROOT?>/assets/images/favicon.ico">
+		<title><?= SITE_NAME ?></title>
+		<link href="<?=URL_ROOT?>/assets/plugins/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+		<link href="<?=URL_ROOT?>/assets/css/style.css" rel="stylesheet">
+		<link rel="stylesheet" type="text/css" href="<?=URL_ROOT?>/assets/plugins/sweetalert/sweetalert.css" />
+		<link href="<?=URL_ROOT?>/assets/css/colors/blue.css" id="theme" rel="stylesheet">
+		<style>
+			.footer { left: 0; background-color: transparent; }
+		</style>
+	</head>
+	<body>
+		<div class="preloader">
+			<svg class="circular" viewBox="25 25 50 50">
+				<circle class="path" cx="50" cy="50" r="20" fill="none" stroke-width="2" stroke-miterlimit="10" /> </svg>
+		</div>
+		<section id="wrapper">
+			<div class="login-register">
+				<!--div class="text-center m-b-30">
+					<img src="<?=URL_ROOT?>/assets/images/logo.png" alt="Conforta" style="max-width: 290px">
+				</div-->
+				<div class="login-box card">
+					<div class="card-body">
+						<h4 class="box-title m-b-20 text-center">Bloqueo por inactividad</h4>
+						<div class="form-group">
+							<div class="col-xs-12 text-center">
+								<div class="user-thumb text-center"> <img alt="thumbnail" class="img-circle" width="100" src="<?= $_SESSION['urlImgUser'] ?>">
+									<h3><?= $_SESSION['username'] ?></h3>
+								</div>
+							</div>
+						</div>
+						<div class="form-group ">
+							<div class="col-xs-12">
+								<input class="form-control form-control-lg text-center" type="password" required="" placeholder="SwitchCode" maxlength="4" id="switchCode">
+							</div>
+						</div>
+						<div class="form-group text-center m-b-0">
+							<div class="col-xs-12">
+								<button class="btn btn-info btn-lg btn-block text-uppercase waves-effect waves-light" type="button" id="btnReturn">Regresar</button>
+								<br><br>
+								<a href="/login" id="to-recover" class="text-info"><i class="fa fa-lock m-r-5"></i> Ingresar con correo y contraseña</a>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</section>
+		<footer class="footer text-center text-white">
+			© <?= date('Y') ?> <small>Hospital Veterinario</small> Peek
+		</footer>
+		
+		<script src="<?=URL_ROOT?>/assets/plugins/jquery/jquery.min.js"></script>
+		<script src="<?=URL_ROOT?>/assets/plugins/bootstrap/js/bootstrap.min.js"></script>
+		<script src="<?=URL_ROOT?>/assets/plugins/blockUI/jquery.blockUI.js"></script>
+		<script src="<?=URL_ROOT?>/assets/plugins/sweetalert/sweetalert.min.js"></script>
+		<script>
+			$(function(){
+				$(".preloader").fadeOut();
+                
+				$('#switchCode').focus();
+				$('#switchCode').keyup(function(e) { e.preventDefault(); if(e.keyCode == 13) $('#btnReturn').trigger('click'); });
+				
+                $attemps = 0;
+                $('#btnReturn').click(function(e){
+					e.preventDefault();
+                    $('#switchCode').removeClass('is-invalid');
+                    code = $.trim($('#switchCode').val());
+                    if(code == ''){
+                        $('#switchCode').addClass('is-invalid').focus();
+                    }else{
+                        blockPage();
+                        $.post("/usuario/switchUser", {code: code},
+                            function (resp) {
+                                if(resp.response){
+                                    swal({
+                                        type: "success",
+                                        title: "Bienvenido "+resp.username,   
+                                        text: resp.message,
+                                        showConfirmButton: false, 
+                                        timer: 4000
+                                    });
+                                    setTimeout(() => {
+                                        window.location = decodeURIComponent('<?= isset($_SESSION['next']) ? $_SESSION['next'] : '/notificaciones' ?>');
+                                    }, 3000);
+                                }else{
+                                    $attemps++;
+                                    if($attemps == 4) window.location = '/login';
+                                    $('#switchCode').val('').focus();
+                                    swal({
+                                        type: "warning",
+                                        title: "Oops!",   
+                                        text: resp.message,   
+                                        timer: 4000
+                                    });
+                                }
+                                $.unblockUI();
+                            },
+                            "json"
+                        );
+                    }
+                });
+
+				function blockPage(){
+					$.blockUI({ 
+						message: '<i class="icon-spinner4 spinner"></i>',
+						overlayCSS: {
+							backgroundColor: '#1b2024',
+							opacity: 0.8,
+							zIndex: 1200,
+							cursor: 'wait'
+						},
+						css: {
+							border: 0,
+							color: '#fff',
+							padding: 0,
+							zIndex: 1201,
+							backgroundColor: 'transparent'
+						}
+					});
+				}
+				
+                setTimeout(() => {
+					sessionStorage.removeItem('historia');
+					sessionStorage.removeItem('receta');
+                    window.location = '/login';
+                }, 1500000);
+			});
+		</script>
+	</body>
+
+</html>

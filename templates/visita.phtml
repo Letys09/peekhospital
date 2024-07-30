@@ -1,0 +1,469 @@
+	<link href="<?= URL_ROOT ?>/assets/plugins/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+	<link href="<?= URL_ROOT ?>/assets/css/colors/peek-dark.css" rel="stylesheet">
+	<link href="<?= URL_ROOT ?>/assets/plugins/datatables/jquery.dataTables.min.css" rel="stylesheet" type="text/css" />
+	<link href="<?= URL_ROOT ?>/assets/plugins/bootstrap-select/bootstrap-select.min.css" rel="stylesheet" type="text/css" />
+	<link href="<?=URL_ROOT?>/assets/css/style.css" rel="stylesheet">
+    <link href="<?= URL_ROOT ?>/assets/plugins/toast/toastr.min.css" rel="stylesheet" />
+	<link href="<?=URL_ROOT?>/assets/css/hospital.css" rel="stylesheet">
+
+	<div class="row page-titles">
+		<div class="col-md-12 align-self-center">
+			<h1 class="text-themecolor text-center" id="title">
+				<?= $datos->mascota.' - '.$datos->propietario.' - '.$datos->colaborador.' - '.$datos->producto ?>
+			</h1>
+		</div>
+	</div>
+	<div class="container-fluid">
+		<div class="card b-all m-b-15">
+			<div class="card-body p-b-10 p-b-10 collapse show" id="div-conceptos">
+				<div class="form-horizontal">
+					<div class="form-group row m-b-0">
+						<div class="col-sm-12 table-responsive">
+							<input type="hidden" id="visita-id" value="0">
+							<table id="tbl-conceptos" class="table table-hover table-striped m-b-0 w-100 mw-100 table-sm compact">
+							</table>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div class="card b-all m-b-15">
+			<div class="card-header link bg-dark" data-toggle="collapse" data-target="#div-detalle">
+				<h5 class="m-b-0 text-white">
+					Insumos agregados
+					<i class="mdi mdi-arrow-expand pull-right"></i> 
+				</h5>
+			</div>
+			<div class="card-body collapse show" id="div-detalle">
+				<div class="table-resonsive">
+					<table id="tbl-detalle" class="table-hover table-striped m-b-0 w-100 mw-100 table-sm compact">
+						<thead>
+							<tr>
+								<th>Cantidad</th>
+								<th>Descripción</th>
+								<th class="text-right">Eliminar</th>
+							</tr>
+						</thead>
+						<tbody>
+						<tr class="nodata">
+							<td colspan="9" class="text-center p-10 nodata">No se han agregado conceptos a la visita</td>
+						</tr>
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</div>
+	
+		<div class="actions float-right mt-">
+			<button type="button" class="btn btn-lg btn-danger waves-effect waves-light m-r-40" id="btnExit">Salir</button>
+			<button type="button" class="btn btn-lg waves-effect waves-light" id="btnDelUltimo">Eliminar último</button>
+		</div>
+		<br>
+		<br>
+	</div>
+
+	<script src="<?= URL_ROOT ?>/assets/plugins/bootstrap/js/popper.min.js"></script>
+	<script src="<?= URL_ROOT ?>/assets/plugins/bootstrap/js/bootstrap.min.js"></script>
+	<script src="<?= URL_ROOT ?>/assets/js/jquery-2.2.4.min.js"></script>
+	<script src="<?= URL_ROOT ?>/assets/plugins/toast/toastr.min.js"></script>
+	<script src="<?= URL_ROOT ?>/assets/plugins/md5/md5.min.js"></script>
+	<script src="<?= URL_ROOT ?>/assets/plugins/datatables/jquery.dataTables.min.js"></script>
+	<script src="<?= URL_ROOT ?>/assets/plugins/datatables/dataTables.buttons.min.js"></script>
+	<script src="<?= URL_ROOT ?>/assets/plugins/datatables/buttons.print.min.js"></script>
+	<script src="<?= URL_ROOT ?>/assets/plugins/datatables/jszip.min.js"></script>
+	<script src="<?= URL_ROOT ?>/assets/plugins/datatables/pdfmake.min.js"></script>
+	<script src="<?= URL_ROOT ?>/assets/plugins/datatables/vfs_fonts.js"></script>
+	<script src="<?= URL_ROOT ?>/assets/plugins/datatables/buttons.html5.min.js"></script>
+	<script src="<?= URL_ROOT ?>/assets/plugins/datetimepicker/js/moment.js"></script>
+	<script src="<?=URL_ROOT?>/assets/plugins/blockUI/jquery.blockUI.js"></script>
+
+	<script>
+		$(function() {
+			const url = '<?= URL_ROOT ?>';
+			const colaborador_id = '<?= $_SESSION['usuario']->colaborador_id ?>';
+			const venta_id = '<?= $datos->venta_id ?>';
+			const visita_id = '<?= $datos->visita_id ?>';
+			const mascota_id = '<?= $datos->mascota_id ?>';
+			const propietario_id = '<?= $datos->propietario_id ?>';
+			const paquete_id = '<?= $datos->id ?>';
+			const receta_id = '<?= $datos->receta_id ?>';
+
+			toastr.options = {									
+				"positionClass": "toast-top-right",
+				"timeOut": "2000",
+			}
+
+			$(window).on('beforeunload', function(e) {
+				if(!$salir) { return false; }
+				<?php if(isset($visita) && intval($visita->colaborador_id) == intval($_SESSION['colaborador']->id)) : ?>
+				$.ajax({
+					url: $apiUrl+'visita/cerrarVisita/<?= $visita->id ?>',
+					type: 'PUT',
+					dataType: 'json',
+					success: function(resp) {
+						if(!resp) {
+							toastr["error"]("Oops!", resp.message);
+						}
+						return false;
+					}
+				});
+				setTimeout(function() {
+					$.ajax({
+						url: $apiUrl+'visita/abrirVisita/<?= $visita->id ?>',
+						type: 'PUT',
+						dataType: 'json',
+						success: function(resp) {
+							if(!resp.response) {
+								toastr["error"]("Oops!", resp.message);
+							}
+						}
+					});
+				}, 10000);
+				<?php endif; ?>
+			});
+
+			getItems(); 
+			detalles();
+
+			$('#tbl-conceptos').on('click', '.btnAdd', function(e) {
+				e.preventDefault();
+				blockPage();
+				let container = $('#tbl-detalle tbody');
+				let id = $(this).data('id');
+				let unidad = $(this).data('unidad');
+				let existe = container.find('tr[data-id="' + id + '"]');
+				
+				if (existe.length > 0) {
+					existe.find('.cantidad').focus();
+				} else {
+					$.get(`${url}/producto/get/${id}`, function(producto) { 
+						producto = producto.result;
+						if(1 <= producto.stock) {
+							data_detalle = {
+								'venta_id': venta_id,
+								'visita_id': visita_id,
+								'colaborador_id': colaborador_id,
+								'propietario_id': propietario_id,
+								'mascota_id': mascota_id,
+								'producto_id': id,
+								'cantidad': '1',
+								'colaborador_asigno_id': colaborador_id,
+								'paquete_id': paquete_id,
+								'receta_id': receta_id,
+							}
+							$.post(`${url}/det_venta/add/`, data_detalle, function(detalle) { 
+								if(detalle.response) {
+									data = { 
+										'producto_id': id, 
+										'nombre': producto.nombre, 
+										'detalle_id': detalle.result, 
+										'cantidad': 1.00, 
+										'unidad': unidad, 
+										'receta_detalle_id': detalle.receta_detalle_id,
+										'tipo_admin': 1
+									};									
+									addDetalle(data);
+									toastr['success']('¡Listo!');
+									$.unblockUI();
+								} else { 
+									toastr["error"]("Oops!", detalle.message); 
+									$.unblockUI();
+								}
+							}, 'json');
+						} else { 
+							toastr["error"]("Sin stock!", "No hay stock suficiente del producto seleccionado"); 
+							$.unblockUI();
+						}
+					}, 'json');
+				}
+			});
+
+			$('body').on('change', '.cantidad', function() {
+				blockPage();
+				let input = $(this);
+				let tr = $(this).closest('tr');
+				let detalle_id = tr.data('detalle_id');
+				let receta_detalle_id = tr.data('receta_detalle_id');
+				let new_cant = $(this).val();
+				$.ajax({
+					url: `${url}/det_venta/edit/${detalle_id}`,
+					type: 'PUT',
+					data: { cantidad: new_cant, paquete_id: paquete_id, receta_detalle_id: receta_detalle_id},
+					dataType: 'json',
+					success: function(resp) {
+						$(input).val(parseFloat(new_cant).toFixed(2));
+						toastr['success']('¡Listo!');
+						$.unblockUI();
+					},
+					error: function(jqXHR, textStatus, errorThrown) {
+						toastr['error']('¡Algo salió mal!');
+						$.unblockUI();
+					}
+				});
+			});
+
+			$('body').on('change', '.tipo_administracion', function() {
+				blockPage();
+				let tr = $(this).closest('tr');
+				let cantidad = tr.find('.cantidad').val();
+				let detalle_id = tr.data('detalle_id');
+				let receta_detalle_id = tr.data('receta_detalle_id');
+				let tipo_admin = $(this).val();
+				$.ajax({
+					url: `${url}/det_venta/editDetReceta/${receta_detalle_id}`,
+					type: 'PUT',
+					data: { tipo_admin: tipo_admin, cantidad: cantidad},
+					dataType: 'json',
+					success: function(resp) {
+						toastr['success']('¡Listo!');
+						$.unblockUI();
+					},
+					error: function(jqXHR, textStatus, errorThrown) {
+						toastr['error']('¡Algo salió mal!');
+						$.unblockUI();
+					}
+				});
+			});
+
+
+			function addDetalle(data) {
+				container = $('#tbl-detalle tbody'); 
+				$('#tbl-detalle tbody .nodata').remove();
+				tr = $('<tr data-id="'+data.producto_id+'" data-detalle_id="'+data.detalle_id+'" data-receta_detalle_id="'+data.receta_detalle_id+'" class="bg-light"></tr>');
+				tr.append('<td><input type="number" class="col-3 form-control form-control-lg cantidad" value="'+data.cantidad+'"/></td>');
+				if(data.unidad == 5 || data.unidad == 6){
+					tr.append(`<td class="text-left d-flex">
+									<span class="flex-grow-1 col-7 mr-3">${data.nombre}</span>
+									<span class="col-4">
+										<select class="form-control form-control-lg tipo_administracion">
+											<option value="1" ${parseInt(data.tipo_admin) === 1 ? 'selected' : ''}>Intravenosa</option>
+											<option value="2" ${parseInt(data.tipo_admin) === 2 ? 'selected' : ''}>Intramuscular</option>
+										</select>
+									</span>
+								</td>`);
+				}else{
+					tr.append(`<td class="text-left"><span class="concepto">${data.nombre}</span></td>`);
+				}
+
+				td = $('<td class="text-right"><a href="#" class="btn btn-lg btn-danger btnDelProducto"><i class="mdi mdi-delete fa-lg"></i></a></td>').appendTo(tr);
+				tr.appendTo(container)
+			
+				$('#tbl-detalle .nodata').remove();
+				$('.cantidad').focus();
+				$('.cantidad').attr('inputmode', 'numeric').attr('pattern', '[0-9]*');
+			}
+
+			$('#tbl-detalle').on('click', '.btnDelProducto', function(e) {
+				e.preventDefault();
+				blockPage();
+				let row = $(this).closest('tr');
+				let detalle_id = tr.data('detalle_id');
+				let receta_detalle_id = tr.data('receta_detalle_id');
+				let data = {
+					visita_id: visita_id,
+					venta_id: venta_id,
+					paquete_id: paquete_id,
+					receta_detalle_id: receta_detalle_id
+				}
+
+				$.ajax({
+					url: `${url}/det_venta/del/${detalle_id}`,
+					type: 'PUT',
+					data: data,
+					dataType: 'json',
+					success: function(resp) {
+						toastr['success']('¡Listo!');
+						$.unblockUI();
+						row.remove();
+					},
+					error: function(jqXHR, textStatus, errorThrown) {
+						toastr['error']('¡Algo salió mal!');
+						$.unblockUI();
+					}
+				});
+
+				if($('#tbl-detalle tbody tr').length === 0) {
+					$('#tbl-detalle tbody').append('<tr class="nodata"><td colspan="3" class="text-center">No se han agregado conceptos a la visita</td></tr>');
+				}
+			});
+			
+			$('#btnDelUltimo').on('click', function(e) {
+				e.preventDefault();
+				blockPage();
+				let container = $('#tbl-detalle tbody');
+				let rows = container.find('tr');
+				if(rows.length >= 1) {
+					let ultima = rows.last();
+					let detalle_id = ultima.data('detalle_id');
+					let receta_detalle_id = ultima.data('receta_detalle_id');
+					let data = {
+						visita_id: visita_id,
+						venta_id: venta_id,
+						paquete_id: paquete_id,
+						receta_detalle_id: receta_detalle_id
+					}
+					$.ajax({
+						url: `${url}/det_venta/del/${detalle_id}`,
+						type: 'PUT',
+						data: data,
+						dataType: 'json',
+						success: function(resp) {
+							toastr['success']('¡Listo!');
+							$.unblockUI();
+							ultima.remove()
+						},
+						error: function(jqXHR, textStatus, errorThrown) {
+							toastr['error']('¡Algo salió mal!');
+							$.unblockUI();
+						}
+					});
+				}
+				if(container.find('tr').length === 0) {
+					container.append('<tr class="nodata"><td colspan="3" class="text-center">No hay datos disponibles</td></tr>');
+				}
+    		});
+
+			$('#btnExit').on('click', function(e){
+				e.preventDefault();
+				window.location.href = '<?= URL_ROOT ?>/usuario/logout';
+			});
+
+			var temporal = null;
+			function evaluar(time) {
+				setTimeout(() => {
+					if(time == temporal) {
+						$("#tbl-conceptos_filter label input").val($.trim($('#bus').val())).trigger('keyup');
+					}
+				}, 1000);
+			}
+
+			cleanTable('tbl-pagos'); createTable('tbl-pagos', false);
+			function getItems(arrColumns=null) {
+				blockPage();
+				cleanTable('tbl-conceptos');
+				createTable('tbl-conceptos', true, arrColumns, $('.paginate_button.current').text());
+			}
+
+			function cleanTable(tbl) {
+				if($.fn.dataTable.isDataTable('#'+tbl)) {
+					table = $('#'+tbl).DataTable();
+					table.destroy();
+				}
+				$("#nodata").remove();
+			}
+
+			function createTable(tbl, paging, arrColumns=null, page=0) {
+				container = $('<div class="form-inline pull-right" style="overflow: visible"></div>');
+				if(tbl == 'tbl-conceptos') {
+					searchContainer = $('<div class="input-group"></div>').appendTo(container);
+					icon = $('<div class="input-group-prepend"></div>').appendTo(searchContainer);
+					icon.append('<span class="input-group-text"><i class="fa fa-search"></i></span>');
+					search = $('<input type="search" id="bus" placeholder="Buscar por nombre" class="form-control form-control-lg">').appendTo(searchContainer);
+				}
+
+				columnDefs = [];
+				switch(tbl) {
+					case 'tbl-conceptos':
+						columnDefs = [
+							{"orderable": true, "targets": [0], "visible": true},
+							{"orderable": true, "targets": [1], "visible": true},
+							{"orderable": false, "targets": [2]},
+						];
+						break;
+				}
+				if(tbl!='tbl-conceptos') {
+					$('#'+tbl).dataTable( {
+						scrollX: false,
+						paging:  paging,
+						pagingType: "full_numbers",
+						dom:     'Rl<"#toolbar-'+tbl+'">frtip',
+						"columnDefs": columnDefs,
+						'order': [[(tbl=="tbl-conceptos"? 2: (tbl=="tbl-detalle"? 3: 0))]], 
+						lengthMenu: [[5,10,15,20],[5,10,15,20]]
+					});
+				} else {
+					$('#'+tbl).dataTable( {
+						'scrollX': false,
+						'paging': paging,
+						'pagingType': "full_numbers",
+						'dom': 'Rl<"#toolbar-'+tbl+'">frtip',
+						'columnDefs': [
+							{'data': 'cantidad', 'title': 'Existencia', 'visible': true, 'orderable': true, 'targets': [0], 'className': 'align-middle'},
+							{'data': 'nombre', 'title': 'Descripcion', 'visible': true, 'orderable': true, 'targets': [1], 'className': 'align-middle'},
+							{'data': 'accionesVisita', 'title': 'Agregar', 'visible': true, 'orderable': false, 'targets': [2], 'className': 'text-right align-middle'},
+						],
+						"scrollCollapse": true,
+						'order': [[0,'desc']],
+						'processing': true,
+						'serverSide': true,
+						'ajax': {
+							url: url+'/producto/getAllBuscaTemplate/'+($.isNumeric(page)? page: 0)+'/0/_',
+							type: 'GET',
+						},
+						'createdRow': function(row, data, dataIndex) { trow = $(row)
+							trow.attr('data-id', data.data_id);
+						},
+						'lengthMenu': [[5,10,15,20],[5,10,15,20]]
+					});
+				}
+
+				if(tbl=='tbl-conceptos') {
+					$('#toolbar-tbl-conceptos').html(container);
+					$('#toolbar-tbl-conceptos #bus').keyup(function(e) { 
+						temporal = moment().format('x')+"-"+Math.random();
+						evaluar(temporal);
+					});
+					$("#toolbar-tbl-conceptos #bus").on("search", function(evt){
+						$("#tbl-conceptos_filter label input").val(undefined).trigger('keyup');
+					});
+				}
+
+				$('#'+tbl).parents('.table-responsive').css('overflow', 'visible');
+				$("#tbl-conceptos_filter label").hide();
+				$("#tbl-detalle_filter label").hide();
+				$.unblockUI();
+			}
+
+			function detalles(){
+				blockPage();
+				let detallesJson = '<?= json_encode($datos->detalles) ?>';
+				let detalles;
+				detalles = JSON.parse(detallesJson);
+				
+				if (Array.isArray(detalles) && detalles.length > 0 ) {
+					$.each(detalles, function(index, detalle) {
+						data = { 
+							'producto_id': detalle.producto_id, 
+							'nombre': detalle.nombre, 
+							'detalle_id': detalle.id, 
+							'cantidad': detalle.cantidad, 
+							'unidad': detalle.unidad,
+							'receta_detalle_id': detalle.receta_detalle_id,
+							'tipo_admin': detalle.tipo_admin
+						};
+						addDetalle(data);
+					});
+				}
+				$.unblockUI();
+			}
+
+			function blockPage(){
+				$.blockUI({ 
+					message: '<h2 style="color: white;">Un momento por favor</h2><h3 style="color: white;">No cierre ni recargue la página</h3>',
+					overlayCSS: {
+						backgroundColor: '#1b2024',
+						opacity: 0.8,
+						zIndex: 1200,
+						cursor: 'wait'
+					},
+					css: {
+						border: 0,
+						color: '#fff',
+						padding: 0,
+						zIndex: 1201,
+						backgroundColor: 'transparent'
+					}
+				});
+			}
+		});
+	</script>
