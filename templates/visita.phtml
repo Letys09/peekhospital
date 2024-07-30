@@ -107,6 +107,7 @@
 				
 				if (existe.length > 0) {
 					existe.find('.cantidad').focus();
+					$.unblockUI();
 				} else {
 					$.get(`${url}/producto/get/${id}`, function(producto) { 
 						producto = producto.result;
@@ -230,8 +231,8 @@
 				e.preventDefault();
 				blockPage();
 				let row = $(this).closest('tr');
-				let detalle_id = tr.data('detalle_id');
-				let receta_detalle_id = tr.data('receta_detalle_id');
+				let detalle_id = row.data('detalle_id');
+				let receta_detalle_id = row.data('receta_detalle_id');
 				let data = {
 					visita_id: visita_id,
 					venta_id: venta_id,
