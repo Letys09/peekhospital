@@ -24,7 +24,7 @@
             $this->response->result = $this->db
                 ->from($this->table)
                 ->select(null)
-                ->select("nombre, categoria_id, tipo, unidad, precio, stock, uso_controlado, no_ventas")
+                ->select("nombre, categoria_id, tipo, unidad, precio, stock, uso_controlado, iva, no_ventas")
                 ->where("id", $id)
                 ->fetch();
             if(!$this->response->result) $this->response->SetResponse(false, 'no existe el registro');

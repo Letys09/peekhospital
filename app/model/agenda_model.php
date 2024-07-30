@@ -39,7 +39,7 @@
             $this->response->result = $this->db
 				->from($this->table)
 				->select(null)
-				->select("$this->table.id, $this->table.fecha, $this->table.hora, $this->tableP.nombre AS producto,  CONCAT_WS(' ', $this->tableM.nombre, $this->tableM.apellidos) AS mascota, 
+				->select("$this->table.id, $this->table.fecha, $this->table.hora, $this->tableP.nombre AS producto, $this->tableP.categoria_id, CONCAT_WS(' ', $this->tableM.nombre, $this->tableM.apellidos) AS mascota, 
 						  CONCAT_WS(' ', medico.nombre, medico.apellidos) AS colaborador, CONCAT_WS(' ', prop.nombre, prop.apellidos) AS propietario")
 				->leftJoin("producto ON producto.id = agenda.producto_id ")
 				->innerJoin("$this->tableDV ON $this->tableDV.id = $this->table.det_venta_id")

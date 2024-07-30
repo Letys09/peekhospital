@@ -14,157 +14,189 @@ require_once './core/defines.php';
 			$this->model->transaction->iniciaTransaccion();
 			$parsedBody = $request->getParsedBody(); 
 			$pushFarmacia = false;
-
-            $mascota_original_id = $parsedBody['mascota_id'];
-            $propietario_original_id = $parsedBody['propietario_id'];
+		
+			$mascota_id = $parsedBody['mascota_id'];
+			$propietario_original_id = $parsedBody['propietario_id'];
 			$paquete_id = $parsedBody['paquete_id']; 
 			$colaborador_id = $parsedBody['colaborador_id']; 
 			$producto_id = $parsedBody['producto_id']; 
 			$receta_id = $parsedBody['receta_id']; 
-
+			$prop_farmacia = $parsedBody['farmacia'];
+		
 			$cantidad = floatval($parsedBody['cantidad']); 
 			$venta_id = $parsedBody['venta_id']; 
+			$venta = $this->model->visita->getVenta($venta_id)->result;
 			$visita_id = $parsedBody['visita_id']; 
-            $parsedBody['propietario_id'] = 396;
 			$fecha = date('Y-m-d H:i:s'); 
-
-            $info_prod = $this->model->producto->get($producto_id)->result;
-            $precio = $info_prod->precio;
-            $importe = floatval($cantidad * $precio);
-            $parsedBody['precio'] = $precio;
-            $parsedBody['subtotal'] = $importe;
-            $parsedBody['descuento_porcentaje'] = '100';
-            $parsedBody['descuento_motivo'] = 'Paquete Farmacia';
-            $parsedBody['total'] = '0.00';
+			$fecha_corta = date('Y-m-d');
+		
+			$info_prod = $this->model->producto->get($producto_id)->result;
+			$precio = $info_prod->precio;
+			$subtotal = floatval($cantidad * $precio);
+			$parsedBody['precio'] = $precio;
+			$parsedBody['subtotal'] = $subtotal;
+			
+			if($prop_farmacia){
+				$parsedBody['propietario_id'] = 396;
+				$mascota_id = 654;
+				$parsedBody['descuento_porcentaje'] = '100';
+				$parsedBody['descuento_motivo'] = 'Paquete Farmacia';
+				$parsedBody['total'] = '0.00';
+			}else{
+				$parsedBody['descuento_porcentaje'] = '0';
+				$parsedBody['descuento_motivo'] = '';
+				$parsedBody['propietario_id'] = $propietario_original_id;
+				$mascota_id = $mascota_id;
+			}
+			
 			$parsedBody['iva'] = 0;
-
-            unset($parsedBody['visita_id'], $parsedBody['mascota_id'], $parsedBody['paquete_id'], $parsedBody['receta_id']);
-
+			if($venta->facturar == 1) {
+				if($info_prod->iva == 3){
+					$precioSinIva = $precio/1.16; 
+					$subtotal = ($cantidad*$precioSinIva);
+					$parsedBody['precio'] = $precioSinIva;
+					$parsedBody['subtotal'] = $subtotal;
+					$parsedBody['total'] = $subtotal;
+				}
+				if($info_prod->iva == 2 || $info_prod->iva == 3) {
+					$porc = 1;
+					$s = floatval($subtotal);
+					$i = 0;
+					$p = 0;
+					$parsedBody['iva'] = ($s - $i) * 0.16 * $porc;
+				}
+				$parsedBody['total'] += floatval($parsedBody['iva']);
+			}
+			$parsedBody['colaborador_asigno_id'] = $colaborador_id;
+			$parsedBody['fecha_asigno'] = $fecha_corta;
+		
+			unset($parsedBody['visita_id'], $parsedBody['mascota_id'], $parsedBody['paquete_id'], $parsedBody['receta_id'], $parsedBody['farmacia']);
+		
 			$det_venta = $this->model->det_venta->add($parsedBody); 
 			if($det_venta->response) { 
 				$det_venta_id = $det_venta->result; $subtotal_venta = 0; $iva_venta = 0; $total_venta = 0;
 				$detalles_det_venta = $this->model->det_venta->getByVenta($venta_id)->result; 
 				foreach($detalles_det_venta as $detalle) { 
-                    $subtotal_venta += $detalle->subtotal; 
-                    $iva_venta += $detalle->iva; 
-                    $total_venta += $detalle->total; 
-                }
+					$subtotal_venta += $detalle->subtotal; 
+					$iva_venta += $detalle->iva; 
+					$total_venta += $detalle->total; 
+				}
 				$data_edit_venta = [ 'subtotal' => $subtotal_venta, 'descuento' => $subtotal_venta+$iva_venta-$total_venta, 'iva' => $iva_venta, 'total' => $total_venta ];
 				$edit_venta = $this->model->visita->editVenta($data_edit_venta, $venta_id); 
-                if($edit_venta->response) {
+				if($edit_venta->response) {
 					$salida_id = $this->model->prod_salida->getByVenta($venta_id)->result->id; 
-                    $descuento = $importe * (intval($parsedBody['descuento_porcentaje']) / 100);
-                    $data_det_salida = [ 
-                        'prod_salida_id' => $salida_id, 
-                        'producto_id' => $producto_id, 
-                        'cantidad' => $cantidad, 
-                        'precio' => $precio, 
-                        'importe' => $importe, 
-                        'descuento_importe' => $descuento, 
-                        'descuento_motivo' => $parsedBody['descuento_motivo'], 
-                        'total' => $total_venta
-                    ];
-                    $det_salida = $this->model->prod_salida->addDetalle($data_det_salida); 
-                    if($det_salida->response) {
-                        $stock = $this->model->prod_stock->getByProducto($producto_id)->result; 
-                        if(count($stock) > 1 || ($info_prod->stock != null && floatval($info_prod->stock) > 0)) {
-                            $tipo = -1;
-                            if(count($stock) == 0) {
-                                $data_stock = [ 
-                                    'producto_id' => $producto_id, 
-                                    'tipo' => 1, 
-                                    'inicial' => 0, 
-                                    'cantidad' => $info_prod->stock, 
-                                    'final' => $info_prod->stock, 
-                                    'fecha' => $fecha, 
-                                    'colaborador_id' => $colaborador_id, 
-                                    'origen' => 0, 
-                                    'origen_tipo' => 1, 
-                                    'status' => 1 
-                                ];
-                                $stock_inicial = $this->model->prod_stock->add($data_stock); 
-                                if($stock_inicial->response) { $inicial = $info_prod->stock; }
-                                else { 
-                                    $stock_inicial->state = $this->model->transaction->regresaTransaccion(); 
-                                    return $response->withJson($stock_inicial->SetResponse(false, 'No se agregó el registro de stock inicial, el cual no existía anteriormente')); 
-                                }
-                            } else {
-                                $inicial = $stock[0]->final;
-                            }
-                            
-                            $data_stock = [ 
-                                'producto_id' => $producto_id, 
-                                'tipo' => $tipo, 
-                                'inicial' => $inicial, 
-                                'cantidad' => $cantidad, 
-                                'final' => $inicial+($tipo*$cantidad), 
-                                'fecha' => $fecha, 
-                                'colaborador_id' => $colaborador_id, 
-                                'origen' => $salida_id, 
-                                'origen_tipo' => 2, 
-                                'det_venta_id' => $det_venta_id 
-                            ];
-                            $prod_stock = $this->model->prod_stock->add($data_stock); 
-                            if($prod_stock->response) { 
-                                $prod_stock_id = $prod_stock->result;
-                                $edit_producto = $this->model->producto->edit(['stock'  =>  $data_stock['final'], 'no_ventas' => $info_prod->no_ventas+1], $producto_id); 
-                                if(!$edit_producto->response) {
-                                    $edit_producto->state = $this->model->transaction->regresaTransaccion(); return $response->withJson($edit_producto->SetResponse(false, 'No se edito el stock del producto')); 
-                                }
-
-                                // Solicitar a farmacia
-                                if(in_array($info_prod->tipo, [4,5,6,7])){
-                                    $this->model->det_venta->edit(array('surtido' => 0), $det_venta_id);
-                                    $dataFarmacia = array(
-                                        'producto_id' => $producto_id, 
-                                        'propietario_id' => 396,
-                                        'mascota_id' => 654,
-                                        'det_venta_id' => $det_venta_id,
-                                        'fecha' => $fecha,
-                                        'origen_tipo' => 2, 
-                                        'origen_id' => $visita_id, 
-                                        'usuario_solicita' => $colaborador_id, 
-                                        'cantidad' => $cantidad,
-                                    );
-                                    $this->model->farmacia->add($dataFarmacia);
-                                    $pushFarmacia = true;
-
-                                    if($info_prod->uso_controlado == 1){
-                                        $dataControlado = array(
-                                            'producto_id' 		=> $producto_id,
-                                            'propietario_id' 	=> $propietario_original_id,
-                                            'mascota_id' 		=> $mascota_original_id,
-                                            'origen_id' 		=> $visita_id,
-                                            'origen_tipo'		=> 2,
-                                            'det_venta_id'		=> $det_venta_id, 
-                                            'cantidad' 			=> $cantidad, 
-                                            'dias' 				=> 1, 
-                                            'surtidos' 			=> 1, 
-                                            'restan' 			=> 0, 
-                                            'completo' 			=> 1,
-                                            'status' 			=> 2, 
-                                        );
-                                        $controlado = $this->model->farmacia->addControlado($dataControlado);
-                                        $controlado->data = $dataControlado;
-                                        if(!$controlado->response){ 
-                                            $controlado->state = $this->model->transaction->regresaTransaccion(); 
-                                            return $response->withJson($controlado); 
-                                        }
-                                    }
-                                }
-                            } else { $prod_stock->state = $this->model->transaction->regresaTransaccion(); return $response->withJson($prod_stock->SetResponse(false, 'No se agregó la información del stock')); }
-                        }
-
-                        if($info_prod->categoria_id == 9){
-                            $this->model->mascota->edit(array('quirofano' => 1), $mascota_original_id);
-                            $this->model->seg_log->add('Mascota Cirugía',  $mascota_original_id, 'mascota');
-                        }
-
-                        if($info_prod->categoria_id == 11){
-                            $this->model->mascota->edit(array('quirofano' => 1),  $mascota_original_id);
-                            $this->model->seg_log->add('Mascota Procedimiento '.$info_prod->nombre,  $mascota_original_id, 'mascota');
-                        }
-
+					$descuento = $subtotal * (intval($parsedBody['descuento_porcentaje']) / 100);
+					$data_det_salida = [ 
+						'prod_salida_id' => $salida_id, 
+						'producto_id' => $producto_id, 
+						'cantidad' => $cantidad, 
+						'precio' => $precio, 
+						'importe' => $subtotal, 
+						'descuento_importe' => $descuento, 
+						'descuento_motivo' => $parsedBody['descuento_motivo'], 
+						'total' => $total_venta
+					];
+					$det_salida = $this->model->prod_salida->addDetalle($data_det_salida); 
+					if($det_salida->response) {
+						$stock = $this->model->prod_stock->getByProducto($producto_id)->result; 
+						if(count($stock) > 1 || ($info_prod->stock != null && floatval($info_prod->stock) > 0)) {
+							$tipo = -1;
+							if(count($stock) == 0) {
+								$data_stock = [ 
+									'producto_id' => $producto_id, 
+									'tipo' => 1, 
+									'inicial' => 0, 
+									'cantidad' => $info_prod->stock, 
+									'final' => $info_prod->stock, 
+									'fecha' => $fecha, 
+									'colaborador_id' => $colaborador_id, 
+									'origen' => 0, 
+									'origen_tipo' => 1, 
+									'status' => 1 
+								];
+								$stock_inicial = $this->model->prod_stock->add($data_stock); 
+								if($stock_inicial->response) { $inicial = $info_prod->stock; }
+								else { 
+									$stock_inicial->state = $this->model->transaction->regresaTransaccion(); 
+									return $response->withJson($stock_inicial->SetResponse(false, 'No se agregó el registro de stock inicial, el cual no existía anteriormente')); 
+								}
+							} else {
+								$inicial = $stock[0]->final;
+							}
+							
+							$data_stock = [ 
+								'producto_id' => $producto_id, 
+								'tipo' => $tipo, 
+								'inicial' => $inicial, 
+								'cantidad' => $cantidad, 
+								'final' => $inicial+($tipo*$cantidad), 
+								'fecha' => $fecha, 
+								'colaborador_id' => $colaborador_id, 
+								'origen' => $salida_id, 
+								'origen_tipo' => 2, 
+								'det_venta_id' => $det_venta_id 
+							];
+							$prod_stock = $this->model->prod_stock->add($data_stock); 
+							if($prod_stock->response) { 
+								$prod_stock_id = $prod_stock->result;
+								$edit_producto = $this->model->producto->edit(['stock'  =>  $data_stock['final'], 'no_ventas' => $info_prod->no_ventas+1], $producto_id); 
+								if(!$edit_producto->response) {
+									$edit_producto->state = $this->model->transaction->regresaTransaccion(); return $response->withJson($edit_producto->SetResponse(false, 'No se editó el stock del producto')); 
+								}
+		
+								// Solicitar a farmacia
+								if(in_array($info_prod->tipo, [4,5,6,7])){
+									$this->model->det_venta->edit(array('surtido' => 0), $det_venta_id);
+									$dataFarmacia = array(
+										'producto_id' => $producto_id, 
+										'propietario_id' => $parsedBody['propietario_id'],
+										'mascota_id' => $mascota_id,
+										'det_venta_id' => $det_venta_id,
+										'fecha' => $fecha,
+										'origen_tipo' => 2, 
+										'origen_id' => $visita_id, 
+										'usuario_solicita' => $colaborador_id, 
+										'cantidad' => $cantidad,
+									);
+									$this->model->farmacia->add($dataFarmacia);
+									$pushFarmacia = true;
+		
+									if($info_prod->uso_controlado == 1){
+										$dataControlado = array(
+											'producto_id' 		=> $producto_id,
+											'propietario_id' 	=> $propietario_original_id,
+											'mascota_id' 		=> $mascota_id,
+											'origen_id' 		=> $visita_id,
+											'origen_tipo'		=> 2,
+											'det_venta_id'		=> $det_venta_id, 
+											'cantidad' 			=> $cantidad, 
+											'dias' 				=> 1, 
+											'surtidos' 			=> 1, 
+											'restan' 			=> 0, 
+											'completo' 			=> 1,
+											'status' 			=> 2, 
+										);
+										$controlado = $this->model->farmacia->addControlado($dataControlado);
+										$controlado->data = $dataControlado;
+										if(!$controlado->response){ 
+											$controlado->state = $this->model->transaction->regresaTransaccion(); 
+											return $response->withJson($controlado); 
+										}
+									}
+								}
+							} else { $prod_stock->state = $this->model->transaction->regresaTransaccion(); return $response->withJson($prod_stock->SetResponse(false, 'No se agregó la información del stock')); }
+						}
+		
+						if($info_prod->categoria_id == 9){
+							$this->model->mascota->edit(array('quirofano' => 1), $mascota_original_id);
+							$this->model->seg_log->add('Mascota Cirugía',  $mascota_original_id, 'mascota');
+						}
+		
+						if($info_prod->categoria_id == 11){
+							$this->model->mascota->edit(array('quirofano' => 1),  $mascota_original_id);
+							$this->model->seg_log->add('Mascota Procedimiento '.$info_prod->nombre,  $mascota_original_id, 'mascota');
+						}
+		
 						switch ($info_prod->unidad) {
 							case 1: $texto = 'Administrar por vía oral '.$cantidad.' pieza'; $tipo_admin = 3; break;
 							case 2: $texto = 'Administrar por vía oral '.$cantidad.' caja'; $tipo_admin = 3; break;
@@ -190,35 +222,35 @@ require_once './core/defines.php';
 						$add_detalle_receta = $this->model->receta->addDetalle($detalle_receta);
 						if(!$add_detalle_receta->response){
 							$add_detalle_receta->state = $this->model->transaction->regresaTransaccion(); 
-                        	return $response->withJson($add_detalle_receta->SetResponse(false, 'No se agregó la información del detalle receta'));
+							return $response->withJson($add_detalle_receta->SetResponse(false, 'No se agregó la información del detalle receta'));
 						}
-                    } else { 
-                        $det_salida->state = $this->model->transaction->regresaTransaccion(); 
-                        return $response->withJson($det_salida->SetResponse(false, 'No se agregó la información del detalle la salida'));
-                    }
-
-                    $subtotal_salida = 0; $total_salida = 0;
+					} else { 
+						$det_salida->state = $this->model->transaction->regresaTransaccion(); 
+						return $response->withJson($det_salida->SetResponse(false, 'No se agregó la información del detalle la salida'));
+					}
+		
+					$subtotal_salida = 0; $total_salida = 0;
 					$detalles = $this->model->prod_salida->getDetBySalida($salida_id)->result; 
-                    foreach($detalles as $detalle) { 
-                        $subtotal_salida += $detalle->importe; 
-                        $total_salida += $detalle->total; 
-                    }
+					foreach($detalles as $detalle) { 
+						$subtotal_salida += $detalle->importe; 
+						$total_salida += $detalle->total; 
+					}
 					$data_salida = [ 'importe'=>$subtotal_salida, 'descuento'=>$subtotal_salida-$total_salida, 'total'=>$total_salida ];
 					$edit_salida = $this->model->prod_salida->edit($data_salida, $salida_id); 
-                    if($edit_salida->response) {
-						$seg_log = $this->model->seg_log->add('Venta de producto', $det_venta_id, 'det_venta'); 
-                        if(!$seg_log->response) {
+					if($edit_salida->response) {
+						$seg_log = $this->model->seg_log->add('Venta de producto desde touch', $det_venta_id, 'det_venta'); 
+						if(!$seg_log->response) {
 							$seg_log->state = $this->model->transaction->regresaTransaccion(); 
-                            return $response->withJson($seg_log->SetResponse(false, 'No se agregó la información en la tabla LOG'));
+							return $response->withJson($seg_log->SetResponse(false, 'No se agregó la información en la tabla LOG'));
 						}
 					}
-                    $paqFarm = $this->model->farmacia->editPaquete($paquete_id, array('costo' => $subtotal_venta));
+					$paqFarm = $this->model->farmacia->editPaquete($paquete_id, array('costo' => $subtotal_venta));
 					
 					if($pushFarmacia) $this->model->farmacia->sendPush();
-
+		
 				} else { $edit_venta->data = $data; $edit_venta->state = $this->model->transaction->regresaTransaccion(); return $response->withJson($edit_venta->SetResponse(false, 'No se actualizó el total de la venta')); }
 			} else { $det_venta->state = $this->model->transaction->regresaTransaccion(); return $response->withJson($det_venta->SetResponse(false, 'No se agregó la información de la venta')); }
-
+		
 			$det_venta->receta_detalle_id = $add_detalle_receta->result;
 			$det_venta->state = $this->model->transaction->confirmaTransaccion();
 			echo json_encode($det_venta->SetResponse(true));
@@ -242,16 +274,34 @@ require_once './core/defines.php';
 			$info_visita	= $this->model->visita->getByVenta($venta_id)->result[0];	
 			$visita_id		= $info_visita->id;
 			$receta_detalle_id     = $parsedBody['receta_detalle_id']; 
-
+			$prop_farmacia  = $parsedBody['farmacia']; 
+		
 			$pushFarmacia = false; $tipoPush = 1;
-
+		
 			$subtotal = floatval($info_producto->precio * $parsedBody['cantidad']);
-
+			if($info_venta->facturar == 1) {
+				if($info_prod->iva == 3){
+					$precioSinIva = $precio/1.16; 
+					$subtotal = ($cantidad*$precioSinIva);
+					$parsedBody['precio'] = $precioSinIva;
+					$parsedBody['subtotal'] = $subtotal;
+					$parsedBody['total'] = $subtotal;
+				}
+				if($info_prod->iva == 2 || $info_prod->iva == 3) {
+					$porc = 1;
+					$s = floatval($subtotal);
+					$i = 0;
+					$p = 0;
+					$parsedBody['iva'] = ($s - $i) * 0.16 * $porc;
+				}
+				$parsedBody['total'] += floatval($parsedBody['iva']);
+			}
+		
 			$det_venta_nuevo = [
 				'cantidad' => $parsedBody['cantidad'],
 				'subtotal' => $subtotal,
 			];
-
+		
 			$areTheSame		= true; 
 			foreach($info_det_venta as $field => $value) { 
 				if(isset($det_venta_nuevo->$field) && $det_venta_nuevo->$field!=$value) { 
@@ -262,19 +312,19 @@ require_once './core/defines.php';
 			if($edit_det_venta->response || $areTheSame) { $edit_det_venta->areTheSame = $areTheSame;
 				$cantidad	= floatval($det_venta_nuevo['cantidad']);
 				$importe	= $subtotal;
-
+		
 				$subtotal_venta = 0; $total_venta = 0;
 				$edit_detalles_det_venta = $this->model->det_venta->getByVenta($venta_id)->result; 
 				foreach($edit_detalles_det_venta as $detalle) { 
 					$subtotal_venta += $detalle->subtotal; 
 					$total_venta += $detalle->total; 
 				}
-
+		
 				$venta_nueva = [ 
 					'subtotal' => $subtotal_venta,
 					'total' => $total_venta 
 				];
-
+		
 				$areTheSame	= true; 
 				foreach($info_venta as $field => $value) { 
 					if(isset($venta_nueva->$field) && $venta_nueva->$field!=$value) { 
@@ -292,7 +342,7 @@ require_once './core/defines.php';
 					if($info_det_venta->cantidad != $cantidad) {
 						$tipo			= ($info_det_venta->cantidad > $cantidad) ? 1 : -1;
 						$cantidad_nueva	= ($info_det_venta->cantidad - $cantidad) * $tipo;
-
+		
 						if($tipo > 0) {
 							$entrada_nueva	= [ 
 								'colaborador_id' => $colaborador_id, 
@@ -356,6 +406,11 @@ require_once './core/defines.php';
 										'descuento_motivo' => 'Paquete Farmacia', 
 										'total' => 0 
 									];
+									if(!$prop_farmacia){
+										$det_salida['descuento_importe'] = 0;
+										$det_salida['descuento_motivo'] = '';
+										$det_salida['total'] = $subtotal;
+									}
 									$add_det_salida	= $this->model->prod_salida->addDetalle($det_salida_nuevo);
 									if($add_det_salida->response) {
 										$origen		= $salida_id;
@@ -364,7 +419,7 @@ require_once './core/defines.php';
 								} else { $edit_salida->state = $this->model->transaction->regresaTransaccion(); return $response->withJson($edit_salida->SetResponse(false, 'NO se actualizó la información de la salida de productos')); }
 							} else { $info_producto->state = $this->model->transaction->regresaTransaccion(); return $response->withJson($info_producto->SetResponse(false, "NO hay suficiente stock del producto: $producto_id, se requieren $cantidad_nueva unidades")); }
 						}
-
+		
 						if($info_producto->stock != null) {
 							$inicial	= floatval($this->model->prod_stock->getByProducto($producto_id)->result[0]->final);
 							$stock_nuevo = [
@@ -392,9 +447,9 @@ require_once './core/defines.php';
 								return $response->withJson($add_stock->SetResponse(false, 'NO se agregó el movimiento en el kardex'));
 							}
 						}
-
+		
 						$edit_det_venta->prod_stock = $this->model->producto->get($producto_id)->result->stock;
-
+		
 						if(in_array($info_producto->tipo,[4,5,6,7])){
 							$info_farmacia = $this->model->farmacia->getByVenta($det_venta_id)[0];
 							if($info_farmacia->status == 1){
@@ -419,7 +474,7 @@ require_once './core/defines.php';
 										'det_venta_id' => $info_farmacia->det_venta_id, 
 										'tipo' => 2, 
 										'fecha' => new Literal('NOW()'), 
-										'usuario_solicita' => $_SESSION['colaborador']->id, 
+										'usuario_solicita' => $colaborador_id, 
 										'cantidad' => $diferencia, 
 										'origen_id' => $info_farmacia->origen_id, 
 										'origen_tipo' => $info_farmacia->origen_tipo, 
@@ -438,7 +493,7 @@ require_once './core/defines.php';
 										'mascota_id' => $info_farmacia->mascota_id, 
 										'det_venta_id' => $info_farmacia->det_venta_id, 
 										'fecha' => new Literal('NOW()'), 
-										'usuario_solicita' => $_SESSION['colaborador']->id, 
+										'usuario_solicita' => $colaborador_id, 
 										'cantidad' => $diferencia, 
 										'origen_id' => $info_farmacia->origen_id, 
 										'origen_tipo' => $info_farmacia->origen_tipo, 
@@ -452,7 +507,7 @@ require_once './core/defines.php';
 								}
 							}
 						}
-
+		
 						switch ($info_producto->unidad) {
 							case 1: $texto = 'Administrar por vía oral '.$cantidad.' pieza'; $tipo_admin = 3; break;
 							case 2: $texto = 'Administrar por vía oral '.$cantidad.' caja'; $tipo_admin = 3; break;
@@ -480,14 +535,14 @@ require_once './core/defines.php';
 					$paqFarm = $this->model->farmacia->editPaquete($paquete_id, array('costo' => $venta_nueva['subtotal']));
 					$edit_venta->SetResponse(true);
 				}
-
+		
 				$edit_det_venta->edit_venta = $edit_venta;
 				$edit_det_venta->SetResponse(true);
 			} else { 
 				$edit_det_venta->state = $this->model->transaction->regresaTransaccion(); 
 				return $response->withJson($edit_det_venta); 
 			}
-
+		
 			$edit_det_venta->producto_id = $producto_id;
 			$edit_det_venta->state = $this->model->transaction->confirmaTransaccion();
 			return $response->withJson($edit_det_venta);
@@ -639,7 +694,7 @@ require_once './core/defines.php';
 					$del_det_venta->state = $this->model->transaction->regresaTransaccion(); 
 					return $response->withJson($del_det_venta->SetResponse(false, 'No se eliminó el detalle de la venta')); }
 
-					$seg_log = $this->model->seg_log->add('Cancela venta de producto desde hospital', $detalle_id, 'det_venta', 1); 
+					$seg_log = $this->model->seg_log->add('Cancela venta de producto desde touch', $detalle_id, 'det_venta', 1); 
 					if(!$seg_log->response) {
 						$seg_log->state = $this->model->transaction->regresaTransaccion(); 
 						return $response->withJson($seg_log);

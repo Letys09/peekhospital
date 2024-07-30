@@ -87,40 +87,12 @@
 			const propietario_id = '<?= $datos->propietario_id ?>';
 			const paquete_id = '<?= $datos->id ?>';
 			const receta_id = '<?= $datos->receta_id ?>';
+			const farmacia = '<?= $datos->farmacia ?>';
 
 			toastr.options = {									
 				"positionClass": "toast-top-right",
 				"timeOut": "2000",
 			}
-
-			$(window).on('beforeunload', function(e) {
-				if(!$salir) { return false; }
-				<?php if(isset($visita) && intval($visita->colaborador_id) == intval($_SESSION['colaborador']->id)) : ?>
-				$.ajax({
-					url: $apiUrl+'visita/cerrarVisita/<?= $visita->id ?>',
-					type: 'PUT',
-					dataType: 'json',
-					success: function(resp) {
-						if(!resp) {
-							toastr["error"]("Oops!", resp.message);
-						}
-						return false;
-					}
-				});
-				setTimeout(function() {
-					$.ajax({
-						url: $apiUrl+'visita/abrirVisita/<?= $visita->id ?>',
-						type: 'PUT',
-						dataType: 'json',
-						success: function(resp) {
-							if(!resp.response) {
-								toastr["error"]("Oops!", resp.message);
-							}
-						}
-					});
-				}, 10000);
-				<?php endif; ?>
-			});
 
 			getItems(); 
 			detalles();
@@ -150,6 +122,7 @@
 								'colaborador_asigno_id': colaborador_id,
 								'paquete_id': paquete_id,
 								'receta_id': receta_id,
+								'farmacia': farmacia
 							}
 							$.post(`${url}/det_venta/add/`, data_detalle, function(detalle) { 
 								if(detalle.response) {
@@ -188,7 +161,7 @@
 				$.ajax({
 					url: `${url}/det_venta/edit/${detalle_id}`,
 					type: 'PUT',
-					data: { cantidad: new_cant, paquete_id: paquete_id, receta_detalle_id: receta_detalle_id},
+					data: { cantidad: new_cant, paquete_id: paquete_id, receta_detalle_id: receta_detalle_id, farmacia: farmacia},
 					dataType: 'json',
 					success: function(resp) {
 						$(input).val(parseFloat(new_cant).toFixed(2));

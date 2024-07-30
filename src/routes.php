@@ -131,6 +131,7 @@
 					$datos->venta_id = $venta_id;
 					$datos->detalles = $detalles;
 					$datos->receta_id = $receta_id;
+					$datos->farmacia = true;
 					$args['datos'] = $datos;
 					$visita = true;
 				}
@@ -179,6 +180,7 @@
 				$datos->colaborador = $_SESSION['usuario']->nombre;
 				$datos->producto = 'HOSPITALIZACIÓN';
 				$datos->detalles = $detalles;
+				$datos->farmacia = false;
 				$args['datos'] = $datos;
 				$visita = true;
 			}

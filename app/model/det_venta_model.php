@@ -22,7 +22,7 @@
 			$this->response = new Response();
 			$this->response->result = $this->db
 				->from($this->table)
-				->select(null)->select("$this->tableP.*, $this->table.*, $this->table.iva AS iva, $this->table.id AS detVentaId")
+				->select(null)->select("$this->tableP.id AS producto_id, $this->tableP.nombre, $this->table.id AS det_venta_id, $this->table.subtotal, $this->table.iva, $this->table.total")
 				->innerJoin("$this->tableP ON $this->table.producto_id = $this->tableP.id")
 				->where($venta_id!=0? "venta_id = $venta_id": "true")
 				->where(!is_array($producto_id)? ($producto_id==0? "true": "producto_id = $producto_id"): "producto_id IN (".implode(',', $producto_id).")")

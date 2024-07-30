@@ -33,7 +33,7 @@
                 $accionesVisita = '<a href="#" data-id="'.$producto->id.'" data-unidad="'.$producto->unidad.'" data-popup="tooltip" title="Agregar" class="btn btn-lg btn-block btn-success btnAdd"><i class="fa fa-lg fa-shopping-cart"></i></a>';
 
                 $data[] = array(
-                    "cantidad" => $producto->cantidad !=null ? $producto->cantidad : "N/A",
+                    "cantidad" => number_format($producto->cantidad, 2) !=null ? number_format($producto->cantidad, 2) : "N/A",
                     "nombre" => $producto->nombre,
                     "accionesVisita" => "<div class=\"pull-right acciones\">$accionesVisita</div>",
                     "data_id" => $producto->id,
