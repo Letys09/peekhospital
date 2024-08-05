@@ -31,10 +31,10 @@
             $data = [];
             foreach($productos->result as $producto) {
                 $accionesVisita = '<a href="#" data-id="'.$producto->id.'" data-unidad="'.$producto->unidad.'" data-popup="tooltip" title="Agregar" class="btn btn-lg btn-block btn-success btnAdd"><i class="fa fa-lg fa-shopping-cart"></i></a>';
-
+				$stock = number_format($producto->cantidad, 2) !=null ? number_format($producto->cantidad, 2) : 'N/A';
                 $data[] = array(
-                    "cantidad" => number_format($producto->cantidad, 2) !=null ? number_format($producto->cantidad, 2) : "N/A",
-                    "nombre" => $producto->nombre,
+                    "cantidad" => "<div><h2>$stock</h2></div>",
+                    "nombre" => "<div><h2>$producto->nombre</h2></div>",
                     "accionesVisita" => "<div class=\"pull-right acciones\">$accionesVisita</div>",
                     "data_id" => $producto->id,
                 );

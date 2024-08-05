@@ -8,58 +8,58 @@
 
 	<div class="row page-titles">
 		<div class="col-md-12 align-self-center">
-			<h1 class="text-themecolor text-center" id="title">
+			<h4 class="text-themecolor text-center" id="title">
 				<?= $datos->mascota.' - '.$datos->propietario.' - '.$datos->colaborador.' - '.$datos->producto ?>
-			</h1>
+			</h4>
 		</div>
-	</div>
-	<div class="container-fluid">
-		<div class="card b-all m-b-15">
-			<div class="card-body p-b-10 p-b-10 collapse show" id="div-conceptos">
-				<div class="form-horizontal">
-					<div class="form-group row m-b-0">
-						<div class="col-sm-12 table-responsive">
-							<input type="hidden" id="visita-id" value="0">
-							<table id="tbl-conceptos" class="table table-hover table-striped m-b-0 w-100 mw-100 table-sm compact">
-							</table>
+		<div class="container-fluid">
+			<div class="card b-all m-b-15">
+				<div class="card-body p-b-10 p-b-10 collapse show" id="div-conceptos">
+					<div class="form-horizontal">
+						<div class="form-group row m-b-0">
+							<div class="col-sm-12 table-responsive">
+								<input type="hidden" id="visita-id" value="0">
+								<table id="tbl-conceptos" class="table table-hover table-striped m-b-0 w-100 mw-100 table-sm compact">
+								</table>
+							</div>
 						</div>
 					</div>
 				</div>
 			</div>
-		</div>
-		<div class="card b-all m-b-15">
-			<div class="card-header link bg-dark" data-toggle="collapse" data-target="#div-detalle">
-				<h5 class="m-b-0 text-white">
-					Insumos agregados
-					<i class="mdi mdi-arrow-expand pull-right"></i> 
-				</h5>
-			</div>
-			<div class="card-body collapse show" id="div-detalle">
-				<div class="table-resonsive">
-					<table id="tbl-detalle" class="table-hover table-striped m-b-0 w-100 mw-100 table-sm compact">
-						<thead>
-							<tr>
-								<th>Cantidad</th>
-								<th>Descripción</th>
-								<th class="text-right">Eliminar</th>
+			<div class="card b-all m-b-15">
+				<div class="card-header link bg-dark" data-toggle="collapse" data-target="#div-detalle">
+					<h5 class="m-b-0 text-white">
+						Insumos agregados
+						<i class="mdi mdi-arrow-expand pull-right"></i> 
+					</h5>
+				</div>
+				<div class="card-body collapse show" id="div-detalle">
+					<div class="table-resonsive">
+						<table id="tbl-detalle" class="table-hover table-striped m-b-0 w-100 mw-100 table-sm compact">
+							<thead>
+								<tr>
+									<th>Cantidad</th>
+									<th>Descripción</th>
+									<th class="text-right">Eliminar</th>
+								</tr>
+							</thead>
+							<tbody>
+							<tr class="nodata">
+								<td colspan="9" class="text-center p-10 nodata">No se han agregado conceptos a la visita</td>
 							</tr>
-						</thead>
-						<tbody>
-						<tr class="nodata">
-							<td colspan="9" class="text-center p-10 nodata">No se han agregado conceptos a la visita</td>
-						</tr>
-						</tbody>
-					</table>
+							</tbody>
+						</table>
+					</div>
 				</div>
 			</div>
+		
+			<div class="actions float-right mt-">
+				<button type="button" class="btn btn-lg btn-danger waves-effect waves-light m-r-40" id="btnExit">Salir</button>
+				<button type="button" class="btn btn-lg waves-effect waves-light" id="btnDelUltimo">Eliminar último</button>
+			</div>
+			<br>
+			<br>
 		</div>
-	
-		<div class="actions float-right mt-">
-			<button type="button" class="btn btn-lg btn-danger waves-effect waves-light m-r-40" id="btnExit">Salir</button>
-			<button type="button" class="btn btn-lg waves-effect waves-light" id="btnDelUltimo">Eliminar último</button>
-		</div>
-		<br>
-		<br>
 	</div>
 
 	<script src="<?= URL_ROOT ?>/assets/plugins/bootstrap/js/popper.min.js"></script>
@@ -106,7 +106,7 @@
 				let existe = container.find('tr[data-id="' + id + '"]');
 				
 				if (existe.length > 0) {
-					existe.find('.cantidad').focus();
+					existe.find('.cantidad').focus().select();
 					$.unblockUI();
 				} else {
 					$.get(`${url}/producto/get/${id}`, function(producto) { 
@@ -223,7 +223,7 @@
 				tr.appendTo(container)
 			
 				$('#tbl-detalle .nodata').remove();
-				$('.cantidad').focus();
+				$('.cantidad').focus().select();
 				$('.cantidad').attr('inputmode', 'numeric').attr('pattern', '[0-9]*');
 			}
 
